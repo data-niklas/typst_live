@@ -1,0 +1,17 @@
+[package]
+name = "typst_live"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+console_error_panic_hook = "0.1.7"
+wasm-bindgen = "0.2.87"
+comemo = "0.3.0"
+once_cell = "1.18.0"
+elsa ="1.8.1"
+typst = { git = "https://github.com/typst/typst.git", tag = "v0.4.0" }
+typst-library = { git = "https://github.com/typst/typst.git", tag = "v0.4.0" }
+web-sys = { version = "0.3.64", features = ["Window", "Document", "HtmlElement", "Node","ImageData", "MouseEvent", "HtmlTextAreaElement", "Blob", "BlobPropertyBag", "Url", "HtmlEmbedElement", "InputEvent"] }
+js-sys = "0.3.64"
