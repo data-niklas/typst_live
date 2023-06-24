@@ -71,7 +71,7 @@
         typst_live = craneLib.buildTrunkPackage (commonArgs // {
           inherit cargoArtifacts;
           nativeBuildInputs = [
-            pkgs.wasm-bindgen-cli
+            rustToolchain
           ];
         });
 
