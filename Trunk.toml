@@ -1,3 +1,4 @@
 [build]
 target = "index.html"
 dist = "dist"
+pattern_script = "<script type=\"module\">import init from '{base}{js}';window.bindingsfile='{base}{js}';init('{base}{wasm}').then(wasm=>{window.wasm=wasm;document.dispatchEvent(new CustomEvent(\"wasmload\", {}))});</script>"

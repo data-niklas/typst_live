@@ -1,71 +1,23 @@
 use comemo::Prehashed;
 use elsa::FrozenVec;
 use once_cell::unsync::OnceCell;
-use std::alloc::System;
 use std::path::Path;
 use std::path::PathBuf;
 
-use wasm_bindgen::closure::Closure;
+use js_sys::Array;
 use wasm_bindgen::prelude::*;
-use web_sys::window;
-use web_sys::{HtmlTextAreaElement, HtmlEmbedElement};
-use web_sys::{MouseEvent, InputEvent, Event};
-use web_sys::{Blob, BlobPropertyBag};
+use web_sys::Blob;
 
 use typst::{
     diag::{FileError, FileResult},
     eval::Library,
-    font::{Font, FontBook, FontInfo},
-    geom::{Color, RgbaColor},
+    font::{Font, FontBook},
     syntax::{Source, SourceId},
-    util::{Buffer, PathExt},
+    util::Buffer,
     World,
 };
 
-fn main() {
-    let document = window()
-        .and_then(|win| win.document())
-        .expect("Could not access document");
-    let body = document.body().expect("Could not access document.body");
-    // Add a button to the document and attach a click event listener to it.
-    let text_area: HtmlTextAreaElement = document
-        .create_element("textarea")
-        .expect("Could not create a text area")
-        .dyn_into::<HtmlTextAreaElement>()
-        .expect("Could not convert to text area");
-    text_area.set_id("area");
-    let embed: HtmlEmbedElement = document
-        .create_element("embed")
-        .expect("Could not create the embed")
-        .dyn_into()
-        .expect("Could not convert to embed");
-    embed.set_width("100%");
-    embed.set_height("100%");
-    body.append_child(text_area.as_ref())
-        .expect("Failed to append text area");
-    body.append_child(embed.as_ref())
-        .expect("Failed to append embed");
-    let button_cb: Closure<dyn FnMut(Event)> = Closure::new(move |_: Event| {
-        let text = document.get_element_by_id("area").unwrap().dyn_into::<HtmlTextAreaElement>().unwrap().value();
-        let mut world = SystemWorld::new();
-        let bytes = world.compile(text).expect("Could not compile");
-        let uint8arr = js_sys::Uint8Array::new(&unsafe { js_sys::Uint8Array::view(&bytes) }.into());
-        let array = js_sys::Array::new();
-        array.push(&uint8arr.buffer());
-        let blob = Blob::new_with_u8_array_sequence_and_options(
-            &array,
-            web_sys::BlobPropertyBag::new()
-                .type_("application/pdf"),
-        )
-        .unwrap();
-        let download_url = web_sys::Url::create_object_url_with_blob(&blob).unwrap();
-        embed.set_src(&download_url);
-    });
-    text_area
-        .add_event_listener_with_callback("input", button_cb.as_ref().unchecked_ref())
-        .expect("Could not add event listener");
-    button_cb.forget();
-}
+fn main() {}
 
 #[wasm_bindgen]
 pub struct SystemWorld {
@@ -77,7 +29,9 @@ pub struct SystemWorld {
     main: SourceId,
 }
 
+#[wasm_bindgen]
 impl SystemWorld {
+    #[wasm_bindgen(constructor)]
     pub fn new() -> SystemWorld {
         let mut searcher = FontSearcher::new();
         searcher.add_embedded();
@@ -92,6 +46,18 @@ impl SystemWorld {
         }
     }
 
+    pub fn compile_to_pdf(&mut self, source: String) -> Result<String, JsValue> {
+        let bytes = self.compile(source)?;
+        let uint8arr = js_sys::Uint8Array::new(&unsafe { js_sys::Uint8Array::view(&bytes) }.into());
+        let array = js_sys::Array::new();
+        array.push(&uint8arr.buffer());
+        let blob = Blob::new_with_u8_array_sequence_and_options(
+            &array,
+            web_sys::BlobPropertyBag::new().type_("application/pdf"),
+        )?;
+        web_sys::Url::create_object_url_with_blob(&blob)
+    }
+
     pub fn compile(&mut self, source: String) -> Result<Vec<u8>, JsValue> {
         self.sources.as_mut().clear();
 
@@ -101,7 +67,11 @@ impl SystemWorld {
                 let render = typst::export::pdf(&document);
                 Ok(render)
             }
-            Err(errors) => Err(format!("{:?}", *errors).into()),
+            Err(errors) => Err(errors
+                .into_iter()
+                .map(|error| JsValue::from_str(&error.message))
+                .collect::<Array>()
+                .into()),
         }
     }
 }
@@ -119,7 +89,7 @@ impl World for SystemWorld {
         self.source(self.main)
     }
 
-    fn resolve(&self, path: &Path) -> FileResult<SourceId> {
+    fn resolve(&self, _path: &Path) -> FileResult<SourceId> {
         Err(FileError::AccessDenied)
     }
 
@@ -138,7 +108,7 @@ impl World for SystemWorld {
             .clone()
     }
 
-    fn file(&self, path: &Path) -> FileResult<Buffer> {
+    fn file(&self, _path: &Path) -> FileResult<Buffer> {
         Err(FileError::AccessDenied)
     }
 }
