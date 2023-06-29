@@ -10,7 +10,7 @@ html,body,.content {
   grid-template-columns: 50% 10px 50%;
 }
 .content > *, #output > * {
-  height: 100%;
+  height: 100vh;
 }
 #code,
 #output,
