@@ -99,7 +99,9 @@ async function recompile(code){
 }
 
 function load_from_url(){
-  let code = decodeURIComponent(window.location.pathname.slice(1))
+  let path = window.location.search.slice(1)
+  if (path.length <= 5)return
+  let code = decodeURIComponent(path.slice(5))
   document.getElementById("code").value = code
   if (code != "")recompile(code)
 }
@@ -114,7 +116,7 @@ document.addEventListener('wasmload', async function() {
     document.getElementById("code").addEventListener("input", debounce(_=>{
       let code = document.getElementById("code").value
       let encoded_code = encodeURIComponent(code)
-      window.history.replaceState(window.history.state, "", "/" + encoded_code)
+      window.history.replaceState(window.history.state, "", "/?text=" + encoded_code)
       recompile(code)
     }, TIMEOUT))
 })
