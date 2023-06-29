@@ -3,6 +3,7 @@ use elsa::FrozenVec;
 use once_cell::unsync::OnceCell;
 use std::path::Path;
 use std::path::PathBuf;
+use typst::geom::Color;
 
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
@@ -17,6 +18,7 @@ use typst::{
     World,
 };
 
+
 fn main() {}
 
 #[wasm_bindgen]
@@ -27,6 +29,52 @@ pub struct SystemWorld {
     fonts: Vec<FontSlot>,
     sources: FrozenVec<Box<Source>>,
     main: SourceId,
+}
+
+impl SystemWorld {
+    pub fn compile_to_pdf_bytes(&mut self, source: String) -> Result<Vec<u8>, JsValue> {
+        self.sources.as_mut().clear();
+
+        self.main = self.insert("<user input>".as_ref(), source);
+        match typst::compile(self) {
+            Ok(document) => {
+                let render = typst::export::pdf(&document);
+                Ok(render)
+            }
+            Err(errors) => Err(errors
+                .into_iter()
+                .map(|error| JsValue::from_str(&error.message))
+                .collect::<Array>()
+                .into()),
+        }
+    }
+
+    pub fn compile_to_images_bytes(
+        &mut self,
+        source: String,
+        pixel_per_pt: f32,
+    ) -> Result<Vec<Vec<u8>>, JsValue> {
+        self.sources.as_mut().clear();
+
+        self.main = self.insert("<user input>".as_ref(), source);
+        match typst::compile(self) {
+            Ok(document) => {
+                let fill = Color::WHITE;
+                let images = document
+                    .pages
+                    .into_iter()
+                    .map(|page| typst::export::render(&page, pixel_per_pt, fill))
+                    .map(|image| image.encode_png().expect("Could not encode as PNG"))
+                    .collect();
+                Ok(images)
+            }
+            Err(errors) => Err(errors
+                .into_iter()
+                .map(|error| JsValue::from_str(&error.message))
+                .collect::<Array>()
+                .into()),
+        }
+    }
 }
 
 #[wasm_bindgen]
@@ -47,7 +95,7 @@ impl SystemWorld {
     }
 
     pub fn compile_to_pdf(&mut self, source: String) -> Result<String, JsValue> {
-        let bytes = self.compile(source)?;
+        let bytes = self.compile_to_pdf_bytes(source)?;
         let uint8arr = js_sys::Uint8Array::new(&unsafe { js_sys::Uint8Array::view(&bytes) }.into());
         let array = js_sys::Array::new();
         array.push(&uint8arr.buffer());
@@ -58,21 +106,30 @@ impl SystemWorld {
         web_sys::Url::create_object_url_with_blob(&blob)
     }
 
-    pub fn compile(&mut self, source: String) -> Result<Vec<u8>, JsValue> {
-        self.sources.as_mut().clear();
-
-        self.main = self.insert("<user input>".as_ref(), source);
-        match typst::compile(self) {
-            Ok(document) => {
-                let render = typst::export::pdf(&document);
-                Ok(render)
-            }
-            Err(errors) => Err(errors
-                .into_iter()
-                .map(|error| JsValue::from_str(&error.message))
-                .collect::<Array>()
-                .into()),
-        }
+    pub fn compile_to_images(
+        &mut self,
+        source: String,
+        pixel_per_pt: f32,
+    ) -> Result<js_sys::Array, JsValue> {
+        let bytes = self.compile_to_images_bytes(source, pixel_per_pt)?;
+        let urls = bytes
+            .into_iter()
+            .map(|bytes| {
+                let uint8arr =
+                    js_sys::Uint8Array::new(&unsafe { js_sys::Uint8Array::view(&bytes) }.into());
+                let array = js_sys::Array::new();
+                array.push(&uint8arr.buffer());
+                let blob = Blob::new_with_u8_array_sequence_and_options(
+                    &array,
+                    web_sys::BlobPropertyBag::new().type_("image/png"),
+                )
+                .expect("Coult not create image BLOB's");
+                let url = web_sys::Url::create_object_url_with_blob(&blob)
+                    .expect("Could not create URL for BLOB");
+                JsValue::from_str(&url)
+            })
+            .collect();
+        Ok(urls)
     }
 }
 

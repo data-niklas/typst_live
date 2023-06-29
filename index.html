@@ -12,8 +12,17 @@
     <script data-trunk src="./split-grid.js"></script>
   </head>
   <body>
-    <textarea id="code"></textarea>
-    <div class="gutter-col gutter-col-1"></div>
-    <embed id="pdf" type="application/pdf"></embed>
+    <div class="content">
+      <textarea id="code"></textarea>
+      <div class="gutter-col gutter-col-1"></div>
+      <div id="output">
+        <embed id="pdf" type="application/pdf"></embed>
+        <div id="images"/>
+      </div>
+    </div>
+    <label class="switch" id="outputtoggle">
+      <input type="checkbox">
+      <span class="slider"></span>
+    </label>
   </body>
 </html>

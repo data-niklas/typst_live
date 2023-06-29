@@ -780,7 +780,7 @@ dependencies = [
  "pico-args",
  "rgb",
  "svgtypes",
- "tiny-skia",
+ "tiny-skia 0.9.1",
  "usvg",
 ]
 
@@ -1092,7 +1092,22 @@ dependencies = [
  "cfg-if",
  "log",
  "png",
- "tiny-skia-path",
+ "tiny-skia-path 0.9.0",
+]
+
+[[package]]
+name = "tiny-skia"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4e37fdc219ee3d551882d24dc5e4df5f72fd9723cbca1ffaa57f7348bf7a47d"
+dependencies = [
+ "arrayref",
+ "arrayvec",
+ "bytemuck",
+ "cfg-if",
+ "log",
+ "png",
+ "tiny-skia-path 0.11.1",
 ]
 
 [[package]]
@@ -1100,6 +1115,17 @@ name = "tiny-skia-path"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7acb0ccda1ac91084353a56d0b69b0e29c311fd809d2088b1ed2f9ae1841c47"
+dependencies = [
+ "arrayref",
+ "bytemuck",
+ "strict-num",
+]
+
+[[package]]
+name = "tiny-skia-path"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93a323d1de20dad9bc8b32daf57702c585ce76e80792d8151de1fc9dfc8d1ca7"
 dependencies = [
  "arrayref",
  "bytemuck",
@@ -1236,7 +1262,7 @@ dependencies = [
  "stacker",
  "subsetter",
  "svg2pdf",
- "tiny-skia",
+ "tiny-skia 0.9.1",
  "tracing",
  "ttf-parser",
  "typst-macros",
@@ -1303,6 +1329,7 @@ dependencies = [
  "elsa",
  "js-sys",
  "once_cell",
+ "tiny-skia 0.11.1",
  "typst",
  "typst-library",
  "wasm-bindgen",

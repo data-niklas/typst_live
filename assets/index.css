@@ -1,20 +1,27 @@
-html,body {
+html,body,.content {
   width: 100%;
   height: 100%;
   margin: 0;
   padding: 0;
   overflow: hidden;
 }
-body {
+.content {
   display: grid;
   grid-template-columns: 50% 10px 50%;
 }
-body > * {
+.content > *, #output > * {
   height: 100%;
 }
 #code,
-#pdf {
+#output,
+#pdf,
+#images{
   width: 100%;
+}
+
+#images > * {
+  width: 100%;
+  height: 100%;
 }
 
 .gutter-col {
@@ -36,4 +43,62 @@ textarea {
     -moz-box-shadow: none;
     box-shadow: none;
     resize: none;
+}
+
+#outputtoggle {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+}
+
+.switch {
+  display: inline-block;
+  width: 40px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  -webkit-transition: .2s;
+  transition: .2s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  -webkit-transition: .2s;
+  transition: .2s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #2196F3;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked + .slider:before {
+  -webkit-transform: translateX(16px);
+  -ms-transform: translateX(16px);
+  transform: translateX(16px);
 }
