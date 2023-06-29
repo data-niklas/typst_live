@@ -19,9 +19,11 @@ html,body,.content {
   width: 100%;
 }
 
+#images {
+  overflow: scroll;
+}
 #images > * {
   width: 100%;
-  height: 100%;
 }
 
 .gutter-col {

@@ -51,19 +51,15 @@ function enable_output_toggle(){
   update_output_view(toggle.checked)
   toggle.addEventListener('change', ()=>{
     update_output_view(toggle.checked)
+    let code = document.getElementById("code").value
+    recompile(code)
   })
 }
 
 const TIMEOUT = 500
+let typst = null
 
-document.addEventListener('wasmload', async function() {
-  enable_tab()
-  enable_split()
-  enable_output_toggle()
-    let rust = await import(window.bindingsfile)
-    let typst = new rust.SystemWorld();
-    document.getElementById("code").addEventListener("input", debounce(_=>{
-      let code = document.getElementById("code").value
+async function recompile(code){
       try {
         if (png_output){
           let result = typst.compile_to_images(code, 2.0);
@@ -73,11 +69,10 @@ document.addEventListener('wasmload', async function() {
             return dom_object;
           });
           let images = document.getElementById("images")
-          images.children = [];
+          images.textContent = "";
           for (object of objects){
             images.appendChild(object)
           }
-          // document.getElementById("images").children = objects
         }
         else {
           let result = typst.compile_to_pdf(code);
@@ -101,5 +96,25 @@ document.addEventListener('wasmload', async function() {
         }))
         console.log(errors)
       }
+}
+
+function load_from_url(){
+  let code = decodeURIComponent(window.location.pathname.slice(1))
+  document.getElementById("code").value = code
+  if (code != "")recompile(code)
+}
+
+document.addEventListener('wasmload', async function() {
+  enable_tab()
+  enable_split()
+  enable_output_toggle()
+    let rust = await import(window.bindingsfile)
+    typst = new rust.SystemWorld();
+    load_from_url()
+    document.getElementById("code").addEventListener("input", debounce(_=>{
+      let code = document.getElementById("code").value
+      let encoded_code = encodeURIComponent(code)
+      window.history.replaceState(window.history.state, "", "/" + encoded_code)
+      recompile(code)
     }, TIMEOUT))
 })
