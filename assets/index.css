@@ -14,17 +14,10 @@ html,body,.content {
 }
 #code,
 #output,
-#pdf,
-#images{
+#pdf{
   width: 100%;
 }
 
-#images {
-  overflow: scroll;
-}
-#images > * {
-  width: 100%;
-}
 
 .gutter-col {
     grid-row: 1/-1;
@@ -47,7 +40,7 @@ textarea {
     resize: none;
 }
 
-#outputtoggle {
+#savetoggle {
   position: absolute;
   bottom: 10px;
   right: 10px;

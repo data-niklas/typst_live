@@ -37,22 +37,12 @@ function enable_split(){
   })
 }
 
-let png_output = false
-function update_output_view(value){
-  png_output = value
-  let output = document.getElementById("output")
-  output.children[0].style.display = value ? "none" : ""
-  output.children[1].style.display = value ? "" : "none"
-}
-
-function enable_output_toggle(){
-  let outputtoggle = document.getElementById("outputtoggle")
-  let toggle = outputtoggle.firstElementChild
-  update_output_view(toggle.checked)
+function enable_save_toggle(){
+  let saveToggle = document.getElementById("savetoggle")
+  let toggle = saveToggle.firstElementChild
+  setCompileOnWrite(!toggle.checked)
   toggle.addEventListener('change', ()=>{
-    update_output_view(toggle.checked)
-    let code = document.getElementById("code").value
-    recompile(code)
+    setCompileOnWrite(!toggle.checked)
   })
 }
 
@@ -61,23 +51,8 @@ let typst = null
 
 async function recompile(code){
       try {
-        if (png_output){
-          let result = typst.compile_to_images(code, 2.0);
-          let objects = result.map(url=>{
-            let dom_object = document.createElement("embed");
-            dom_object.src = url;
-            return dom_object;
-          });
-          let images = document.getElementById("images")
-          images.textContent = "";
-          for (object of objects){
-            images.appendChild(object)
-          }
-        }
-        else {
           let result = typst.compile_to_pdf(code);
           document.getElementById("pdf").src = result;
-        }
       } catch (errors) {
         errors.forEach(error=>new Notify({
           status: 'error',
@@ -106,17 +81,40 @@ function load_from_url(){
   if (code != "")recompile(code)
 }
 
-document.addEventListener('wasmload', async function() {
-  enable_tab()
-  enable_split()
-  enable_output_toggle()
-    let rust = await import(window.bindingsfile)
-    typst = new rust.SystemWorld();
-    load_from_url()
-    document.getElementById("code").addEventListener("input", debounce(_=>{
+function onCodeChange(){
       let code = document.getElementById("code").value
       let encoded_code = encodeURIComponent(code)
       window.history.replaceState(window.history.state, "", "/?text=" + encoded_code)
       recompile(code)
-    }, TIMEOUT))
+}
+
+const onWritePause = debounce(onCodeChange, TIMEOUT)
+
+
+function onCtrlS(e){
+  if (e.ctrlKey && e.key === 's') {
+    e.preventDefault();
+    onCodeChange()
+  }
+}
+
+function setCompileOnWrite(enable){
+  let code = document.getElementById("code")
+  if (enable){
+    code.removeEventListener("keydown", onCtrlS)
+    code.addEventListener("input", onWritePause)
+  }
+  else {
+    code.removeEventListener("input", onWritePause)
+    code.addEventListener("keydown", onCtrlS)
+  }
+}
+
+document.addEventListener('wasmload', async function() {
+  enable_tab()
+  enable_split()
+  let rust = await import(window.bindingsfile)
+  typst = new rust.SystemWorld();
+  load_from_url()
+  enable_save_toggle()
 })
