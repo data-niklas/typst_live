@@ -134,10 +134,6 @@ impl SystemWorld {
 }
 
 impl World for SystemWorld {
-    fn today(&self, offset: Option<i64>) -> Option<typst::eval::Datetime> {
-        Option::None
-    }
-
     fn root(&self) -> &Path {
         &self.root
     }
@@ -155,7 +151,7 @@ impl World for SystemWorld {
     }
 
     fn source(&self, id: SourceId) -> &Source {
-        &self.sources[id.as_u16() as usize]
+        &self.sources[id.into_u16() as usize]
     }
 
     fn book(&self) -> &Prehashed<FontBook> {
