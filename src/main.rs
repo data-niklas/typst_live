@@ -1,6 +1,8 @@
 use comemo::Prehashed;
-use elsa::FrozenVec;
+use elsa::FrozenMap;
 use once_cell::unsync::OnceCell;
+use typst::file::FileId;
+use std::fs::File;
 use std::path::Path;
 use std::path::PathBuf;
 use typst::geom::Color;
@@ -13,13 +15,18 @@ use typst::{
     diag::{FileError, FileResult},
     eval::Library,
     font::{Font, FontBook},
-    syntax::{Source, SourceId},
-    util::Buffer,
+    syntax::Source,
+    util::Bytes,
     World,
 };
 
+extern crate console_error_panic_hook;
+use std::panic;
 
-fn main() {}
+
+fn main() {
+    panic::set_hook(Box::new(console_error_panic_hook::hook));
+}
 
 #[wasm_bindgen]
 pub struct SystemWorld {
@@ -27,15 +34,12 @@ pub struct SystemWorld {
     library: Prehashed<Library>,
     book: Prehashed<FontBook>,
     fonts: Vec<FontSlot>,
-    sources: FrozenVec<Box<Source>>,
-    main: SourceId,
+    source: Option<Source>
 }
 
 impl SystemWorld {
     pub fn compile_to_pdf_bytes(&mut self, source: String) -> Result<Vec<u8>, JsValue> {
-        self.sources.as_mut().clear();
-
-        self.main = self.insert("<user input>".as_ref(), source);
+        self.source = Some(Source::new(FileId::new(None, "/main.typ".as_ref()), source));
         match typst::compile(self) {
             Ok(document) => {
                 let render = typst::export::pdf(&document);
@@ -54,9 +58,8 @@ impl SystemWorld {
         source: String,
         pixel_per_pt: f32,
     ) -> Result<Vec<Vec<u8>>, JsValue> {
-        self.sources.as_mut().clear();
 
-        self.main = self.insert("<user input>".as_ref(), source);
+        self.source = Some(Source::new(FileId::new(None, "/main.typ".as_ref()), source));
         match typst::compile(self) {
             Ok(document) => {
                 let fill = Color::WHITE;
@@ -89,8 +92,7 @@ impl SystemWorld {
             library: Prehashed::new(typst_library::build()),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
-            sources: FrozenVec::new(),
-            main: SourceId::detached(),
+            source: None,
         }
     }
 
@@ -134,24 +136,29 @@ impl SystemWorld {
 }
 
 impl World for SystemWorld {
-    fn root(&self) -> &Path {
-        &self.root
+
+    fn packages(&self) -> &[(typst::file::PackageSpec, Option<typst::diag::EcoString>)] {
+        &[]
+    }
+
+    fn today(&self, offset: Option<i64>) -> Option<typst::eval::Datetime> {
+        Option::None
     }
 
     fn library(&self) -> &Prehashed<Library> {
         &self.library
     }
 
-    fn main(&self) -> &Source {
-        self.source(self.main)
+    fn main(&self) -> Source {
+        self.source.clone().expect("Did not set a main source")
     }
 
-    fn resolve(&self, _path: &Path) -> FileResult<SourceId> {
-        Err(FileError::AccessDenied)
-    }
 
-    fn source(&self, id: SourceId) -> &Source {
-        &self.sources[id.into_u16() as usize]
+    fn source(&self, id: FileId) -> Result<Source, FileError> {
+        if id.path().to_str().unwrap() != "/main.typ" {
+            return Err(FileError::NotFound(id.path().to_owned()))
+        }
+       Ok(self.source.clone().expect("Should have a source"))
     }
 
     fn book(&self) -> &Prehashed<FontBook> {
@@ -165,23 +172,16 @@ impl World for SystemWorld {
             .clone()
     }
 
-    fn file(&self, _path: &Path) -> FileResult<Buffer> {
+    fn file(&self, id: FileId) -> FileResult<Bytes> {
         Err(FileError::AccessDenied)
     }
 }
 
-impl SystemWorld {
-    fn insert(&self, path: &Path, text: String) -> SourceId {
-        let id = SourceId::from_u16(self.sources.len() as u16);
-        let source = Source::new(id, path, text);
-        self.sources.push(Box::new(source));
-        id
-    }
-}
+
 
 /// Holds details about the location of a font and lazily the font itself.
 struct FontSlot {
-    buffer: Buffer,
+    buffer: Bytes,
     index: u32,
     font: OnceCell<Option<Font>>,
 }
@@ -201,7 +201,7 @@ impl FontSearcher {
 
     fn add_embedded(&mut self) {
         let mut add = |bytes: &'static [u8]| {
-            let buffer = Buffer::from_static(bytes);
+            let buffer = Bytes::from_static(bytes);
             for (i, font) in Font::iter(buffer.clone()).enumerate() {
                 self.book.push(font.info().clone());
                 self.fonts.push(FontSlot {
