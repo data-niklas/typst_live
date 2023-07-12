@@ -1,11 +1,11 @@
 use comemo::Prehashed;
-use elsa::FrozenMap;
 use once_cell::unsync::OnceCell;
-use typst::file::FileId;
-use std::fs::File;
+use std::pin::Pin;
+use std::{io::Read, ptr::read};
 use std::path::Path;
-use std::path::PathBuf;
+use typst::file::FileId;
 use typst::geom::Color;
+
 
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
@@ -23,6 +23,11 @@ use typst::{
 extern crate console_error_panic_hook;
 use std::panic;
 
+pub mod package;
+mod file;
+use file::VFS;
+
+pub static MAIN_SOURCE_NAME: &'static str = "/main.typ";
 
 fn main() {
     panic::set_hook(Box::new(console_error_panic_hook::hook));
@@ -30,16 +35,15 @@ fn main() {
 
 #[wasm_bindgen]
 pub struct SystemWorld {
-    root: PathBuf,
     library: Prehashed<Library>,
     book: Prehashed<FontBook>,
     fonts: Vec<FontSlot>,
-    source: Option<Source>
+    vfs: VFS
 }
 
 impl SystemWorld {
     pub fn compile_to_pdf_bytes(&mut self, source: String) -> Result<Vec<u8>, JsValue> {
-        self.source = Some(Source::new(FileId::new(None, "/main.typ".as_ref()), source));
+        self.vfs.set_main(source);
         match typst::compile(self) {
             Ok(document) => {
                 let render = typst::export::pdf(&document);
@@ -58,8 +62,7 @@ impl SystemWorld {
         source: String,
         pixel_per_pt: f32,
     ) -> Result<Vec<Vec<u8>>, JsValue> {
-
-        self.source = Some(Source::new(FileId::new(None, "/main.typ".as_ref()), source));
+        self.vfs.set_main(source);
         match typst::compile(self) {
             Ok(document) => {
                 let fill = Color::WHITE;
@@ -88,15 +91,14 @@ impl SystemWorld {
         searcher.add_embedded();
 
         Self {
-            root: PathBuf::from("./"),
             library: Prehashed::new(typst_library::build()),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
-            source: None,
+            vfs: VFS::new()
         }
     }
 
-    pub fn compile_to_pdf(&mut self, source: String) -> Result<String, JsValue> {
+    pub  fn compile_to_pdf(&mut self, source: String) -> Result<String, JsValue> {
         let bytes = self.compile_to_pdf_bytes(source)?;
         let uint8arr = js_sys::Uint8Array::new(&unsafe { js_sys::Uint8Array::view(&bytes) }.into());
         let array = js_sys::Array::new();
@@ -108,7 +110,7 @@ impl SystemWorld {
         web_sys::Url::create_object_url_with_blob(&blob)
     }
 
-    pub fn compile_to_images(
+    pub  fn compile_to_images(
         &mut self,
         source: String,
         pixel_per_pt: f32,
@@ -133,10 +135,11 @@ impl SystemWorld {
             .collect();
         Ok(urls)
     }
+
 }
 
-impl World for SystemWorld {
 
+impl World for SystemWorld {
     fn packages(&self) -> &[(typst::file::PackageSpec, Option<typst::diag::EcoString>)] {
         &[]
     }
@@ -149,21 +152,15 @@ impl World for SystemWorld {
         &self.library
     }
 
-    fn main(&self) -> Source {
-        self.source.clone().expect("Did not set a main source")
-    }
-
-
-    fn source(&self, id: FileId) -> Result<Source, FileError> {
-        if id.path().to_str().unwrap() != "/main.typ" {
-            return Err(FileError::NotFound(id.path().to_owned()))
-        }
-       Ok(self.source.clone().expect("Should have a source"))
-    }
-
     fn book(&self) -> &Prehashed<FontBook> {
         &self.book
     }
+
+
+    fn main(&self) -> Source {
+        self.vfs.get_main()
+    }
+
 
     fn font(&self, id: usize) -> Option<Font> {
         let slot = &self.fonts[id];
@@ -173,11 +170,13 @@ impl World for SystemWorld {
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
-        Err(FileError::AccessDenied)
+        self.vfs.file(id)
+    }
+
+    fn source(&self, id: FileId) -> FileResult<Source> {
+        self.vfs.source(id)
     }
 }
-
-
 
 /// Holds details about the location of a font and lazily the font itself.
 struct FontSlot {
