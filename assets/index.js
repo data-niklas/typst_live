@@ -8,7 +8,7 @@ function debounce(fn, timeout){
   }
 }
 
-function enable_tab(){
+function enableTab(){
   let textarea = document.getElementById('code')
   textarea.addEventListener('keydown', e=>{
   if (e.key == 'Tab') {
@@ -27,7 +27,7 @@ function enable_tab(){
   })
 }
 
-function enable_split(){
+function enableSplit(){
   Split({
     minSize: 300,
       columnGutters: [{
@@ -37,7 +37,7 @@ function enable_split(){
   })
 }
 
-function enable_save_toggle(){
+function enableSaveToggle(){
   let saveToggle = document.getElementById("savetoggle")
   let toggle = saveToggle.firstElementChild
   setCompileOnWrite(!toggle.checked)
@@ -73,7 +73,22 @@ async function recompile(code){
       }
 }
 
-function load_from_url(){
+function enablePrompt(){
+  let promptDialog = document.getElementById("prompt-dialog")
+  let promptInput = document.getElementById("prompt")
+  promptInput.value = ""
+  window.addEventListener("keydown", e=>{
+    if (e.ctrlKey && e.key === 'p') {
+      e.preventDefault();
+      promptDialog.showModal()
+    }
+    else if (e.key === 'Escape') {
+      promptDialog.close();
+    }
+  })
+}
+
+function loadFromURL(){
   let path = window.location.search.slice(1)
   if (path.length <= 5)return
   let code = decodeURIComponent(path.slice(5))
@@ -111,10 +126,11 @@ function setCompileOnWrite(enable){
 }
 
 document.addEventListener('wasmload', async function() {
-  enable_tab()
-  enable_split()
+  enableTab()
+  enableSplit()
+  enablePrompt()
   let rust = await import(window.bindingsfile)
   typst = new rust.SystemWorld();
-  load_from_url()
-  enable_save_toggle()
+  loadFromURL()
+  enableSaveToggle()
 })
