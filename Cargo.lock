@@ -1540,6 +1540,7 @@ dependencies = [
  "regex",
  "siphasher",
  "tar",
+ "time",
  "typst",
  "typst-library",
  "wasm-bindgen",

@@ -26,7 +26,6 @@ pub struct VFS {
     main_id: FileId,
     hashes: RefCell<HashMap<FileId, FileResult<PathHash>>>,
     paths: RefCell<HashMap<PathHash, PathSlot>>,
-    lfs: LFS
 }
 
 impl VFS {
@@ -36,7 +35,6 @@ impl VFS {
             main_id: FileId::new(None, Path::new(MAIN_SOURCE_NAME)),
             hashes: RefCell::default(),
             paths: RefCell::default(),
-            lfs: LFS::new()
         }
     }
     pub fn source(&self, id: FileId) -> Result<Source, FileError> {

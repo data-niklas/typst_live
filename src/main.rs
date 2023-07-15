@@ -5,6 +5,7 @@ use std::{io::Read, ptr::read};
 use std::path::Path;
 use typst::file::FileId;
 use typst::geom::Color;
+use time::{Date, Month};
 
 
 use js_sys::Array;
@@ -147,7 +148,12 @@ impl World for SystemWorld {
     }
 
     fn today(&self, offset: Option<i64>) -> Option<typst::eval::Datetime> {
-        Option::None
+        let today = js_sys::Date::new_0();
+        let year = today.get_full_year().try_into().expect("Not a year");
+        let month = Month::try_from(today.get_month() as u8).expect("Not a month");
+        let day = today.get_day().try_into().expect("Not a day");
+        let today = Date::from_calendar_date(year, month, day).expect("Is not a valid date");
+        Some(typst::eval::Datetime::Date(today))
     }
 
     fn library(&self) -> &Prehashed<Library> {
