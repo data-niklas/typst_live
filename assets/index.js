@@ -11,18 +11,15 @@ function debounce(fn, timeout){
 function enableTab(){
   let textarea = document.getElementById('code')
   textarea.addEventListener('keydown', e=>{
-  if (e.key == 'Tab') {
-    e.preventDefault();
-    var start = this.selectionStart;
-    var end = this.selectionEnd;
+  if (e.keyCode === 9) {
+    e.preventDefault()
 
-    // set textarea value to: text before caret + tab + text after caret
-    textarea.value = textarea.value.substring(0, start) +
-      "\t" + textarea.value.substring(end);
-
-    // put caret at right position again
-    this.selectionStart =
-      this.selectionEnd = start + 1;
+    textarea.setRangeText(
+      '  ',
+      textarea.selectionStart,
+      textarea.selectionStart,
+      'end'
+    )
   }
   })
 }
@@ -73,8 +70,36 @@ async function recompile(code){
       }
 }
 
+function packageToRow(packageManager, pkg){
+  let row = document.createElement("tr")
+  let name = document.createElement("td")
+  let namespace = document.createElement("td")
+  let version = document.createElement("td")
+  let deleteElement = document.createElement("td")
+  let deleteButton = document.createElement("button")
+  deleteButton.addEventListener("click", _=>{
+    packageManager.delete_package(pkg)
+    updatePackageList(packageManager)
+  })
+  deleteButton.textContent = "X"
+  deleteElement.appendChild(deleteButton)
+  name.textContent = pkg.name
+  namespace.textContent = pkg.namespace
+  version.textContent = pkg.version.major + "." + pkg.version.minor + "." + pkg.version.patch
+
+  row.appendChild(name)
+  row.appendChild(version)
+  row.appendChild(namespace)
+  row.appendChild(deleteElement)
+  return row
+}
+
 function updatePackageList(packageManager){
   // TODO list all packages
+  let packageList = document.getElementById("package-list")
+  let packages = packageManager.list_packages()
+  let rows = packages.map(pkg=>packageToRow(packageManager, pkg))
+  packageList.replaceChildren(...rows)
 }
 
 
@@ -87,6 +112,16 @@ function enablePackageDialog(packageManager){
     updatePackageList(packageManager)
     packageDialog.showModal()
   })
+  let packageInput = document.getElementById("package-input")
+  packageInput.addEventListener("keydown", e=>{
+    if (event.key === "Enter") {
+      packageManager.download_package_from_str(packageInput.value).then(_=>{
+        updatePackageList(packageManager)
+        packageInput.value = ""
+      })
+    }
+  })
+  packageInput.value = ""
 }
 
 function enableDialogs(packageManager){

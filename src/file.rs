@@ -7,6 +7,7 @@ use std::fs;
 use std::hash::Hash;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use typst::file::PackageSpec;
 use typst::util::PathExt;
 use typst::{
     diag::{FileError, FileResult},
@@ -15,11 +16,10 @@ use typst::{
     util::Bytes,
     World,
 };
+use wasm_bindgen::JsValue;
 
-use crate::package::prepare_package;
 use crate::lfs::LFS;
-
-
+use crate::package::prepare_package;
 
 pub struct VFS {
     main: Option<Source>,
@@ -65,6 +65,21 @@ impl VFS {
 
     fn slot(&self, id: FileId) -> FileResult<RefMut<PathSlot>> {
         let mut system_path = PathBuf::new();
+        let error_hash = self
+            .hashes
+            .borrow_mut()
+            .get(&id)
+            .map_or(false, |value| value.is_err());
+        if error_hash {
+            let root = match id.package() {
+                Some(spec) => prepare_package(spec)?,
+                None => Path::new("/").to_owned(),
+            };
+            system_path = root.join_rooted(id.path()).ok_or(FileError::AccessDenied)?;
+            let hash = PathHash::new(&system_path);
+
+            self.hashes.borrow_mut().insert(id, hash);
+        }
         let hash = self
             .hashes
             .borrow_mut()
@@ -109,7 +124,10 @@ struct PathSlot {
 }
 
 impl PathSlot {
-    fn source(&self) -> FileResult<Source> {
+    fn source(&mut self) -> FileResult<Source> {
+        if let Some(Err(_)) = self.source.get() {
+            self.source = OnceCell::new();
+        }
         self.source
             .get_or_init(|| {
                 let buf = read(&self.system_path)?;
@@ -119,7 +137,10 @@ impl PathSlot {
             .clone()
     }
 
-    fn file(&self) -> FileResult<Bytes> {
+    fn file(&mut self) -> FileResult<Bytes> {
+        if let Some(Err(_)) = self.buffer.get() {
+            self.buffer = OnceCell::new();
+        }
         self.buffer
             .get_or_init(|| read(&self.system_path).map(Bytes::from))
             .clone()

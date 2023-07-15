@@ -32,7 +32,17 @@
     </label>
     <dialog id="package-dialog">
       <h1>Installed packages</h1>
+      <table>
+        <thead>
+        <tr>
+          <th>Name</th><th>Version</th><th>Namespace</th><th> </th>
+        </tr>
+        </thead>
+        <tbody id="package-list">
+        </tbody>
+      </table>
       <h1>Install package</h1>
+      <input type="text" id="package-input" placeholder="@namespace/name:version"/>
     </dialog>
   </body>
 </html>

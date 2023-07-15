@@ -1,6 +1,7 @@
 use crate::compat::{WasmPackageSpec, WasmVersion};
 use crate::lfs::LFS;
-use js_sys::{Array, ArrayBuffer, JsString, Uint8Array};
+use js_sys::{Array, ArrayBuffer, JsString, Promise, Uint8Array};
+use regex::Regex;
 use std::io::Write;
 use std::marker::Copy;
 use std::str::FromStr;
@@ -20,7 +21,6 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{spawn_local, JsFuture};
 use web_sys::console;
 use web_sys::{Request, RequestInit, RequestMode, Response};
-use regex::Regex;
 
 pub fn prepare_package(spec: &PackageSpec) -> PackageResult<PathBuf> {
     if spec.namespace != "preview" {
@@ -40,7 +40,8 @@ pub struct PackageManager {
     lfs: Arc<LFS>,
 }
 
-const PACKAGE_SPEC_REGEX: &str = r"packages/([^/]+)/([^-]+)-([0-9]+).([0-9]+).([0-9]+)";
+const PACKAGE_PATH_SPEC_REGEX: &str = r"packages/([^/]+)/([^-]+)-([0-9]+).([0-9]+).([0-9]+)";
+const PACKAGE_SPEC_REGEX: &str = r"@([^/]+)/([^-]+):([0-9]+).([0-9]+).([0-9]+)";
 
 #[wasm_bindgen]
 impl PackageManager {
@@ -60,7 +61,7 @@ impl PackageManager {
         let packages: Vec<WasmPackageSpec> = installed_package_paths
             .into_iter()
             .map(|path: String| {
-                let captures_regex = Regex::new(PACKAGE_SPEC_REGEX).unwrap();
+                let captures_regex = Regex::new(PACKAGE_PATH_SPEC_REGEX).unwrap();
                 let captures = captures_regex.captures(&path).unwrap();
                 let namespace = captures[1].to_owned();
                 let name = captures[2].to_owned();
@@ -74,12 +75,39 @@ impl PackageManager {
         packages.into_iter().map(JsValue::from).collect()
     }
 
-    /// Download a package over the network.
-    pub fn download_package(&self, spec: &WasmPackageSpec) {
+    pub fn delete_package(&self, pkg: WasmPackageSpec) {
+        let package_path = format!(
+            "packages/{}/{}-{}.{}.{}",
+            pkg.namespace, pkg.name, pkg.version.major, pkg.version.minor, pkg.version.patch
+        );
+        let keys: Vec<String> = self.lfs.list();
+        let package_keys: Vec<String> = keys
+            .into_iter()
+            .filter(|key| key.starts_with(&package_path))
+            .collect();
+        for key in package_keys {
+            self.lfs.delete(&key);
+        }
+    }
+
+    pub fn download_package_from_str(&self, spec: &str) -> Promise {
+        let captures_regex = Regex::new(PACKAGE_SPEC_REGEX).unwrap();
+        let captures = captures_regex.captures(&spec).unwrap();
+        let namespace = captures[1].to_owned();
+        let name = captures[2].to_owned();
+        let major = captures[3].parse().expect("");
+        let minor = captures[4].parse().expect("");
+        let patch = captures[5].parse().expect("");
+        let version = WasmVersion::new(major, minor, patch);
+        let spec = WasmPackageSpec::new(namespace, name, version);
+        self.download_package(&spec)
+    }
+
+    pub fn download_package(&self, spec: &WasmPackageSpec) -> Promise {
         // The `@preview` namespace is the only namespace that supports on-demand
         // fetching.
         if self.lfs.exists(&spec.package_directory_key()) {
-            return;
+            return Promise::resolve(&JsValue::from_str("The package already exists"));
         }
         let package_dir = spec.package_directory();
         let package_dir = Path::new(&package_dir);
@@ -98,41 +126,51 @@ impl PackageManager {
             .map_err(|_| PackageError::Other)
             .expect("Could not send request");
         let lfs = self.lfs.clone();
-        let window = web_sys::window().expect("Could not get window");
-        let dl_promise = window.fetch_with_request(&request);
-        let dl_closure = Closure::<dyn FnMut(JsValue)>::new(move |resp_value: JsValue| {
+
+        return Promise::new(&mut move |resolve, reject| {
             let closure_package_dir = closure_package_dir.clone();
-            let lfs = lfs.clone();
-            assert!(resp_value.is_instance_of::<Response>());
-            let resp: Response = resp_value.dyn_into().unwrap();
-            let content_promise = resp.array_buffer().expect("Should have a body");
-            let content_closure = Closure::<dyn FnMut(JsValue)>::new(move |content: JsValue| {
-                let content: ArrayBuffer = content.dyn_into().unwrap();
-                let rusty_content = Uint8Array::new(&content).to_vec();
-                let decompressed = flate2::read::GzDecoder::new(&rusty_content[..]);
-                let mut archive = tar::Archive::new(decompressed);
-                archive
-                    .entries()
-                    .expect("Could not read entries")
-                    .into_iter()
-                    .for_each(|entry| {
-                        let entry = entry.expect("Could not read entry");
-                        let path = entry.path().expect("Could not read path");
-                        let package_dir = closure_package_dir.clone();
-                        let file_path = package_dir.join(path);
-                        let file_path = file_path.to_str().expect("Could not convert Path to str");
-                        let bytes: Vec<u8> = entry
-                            .bytes()
+            let lfs = self.lfs.clone();
+            let window = web_sys::window().expect("Could not get window");
+            let dl_promise = window.fetch_with_request(&request);
+            let dl_closure = Closure::<dyn FnMut(JsValue)>::new(move |resp_value: JsValue| {
+                let closure_package_dir = closure_package_dir.clone();
+                let lfs = lfs.clone();
+                assert!(resp_value.is_instance_of::<Response>());
+                let resp: Response = resp_value.dyn_into().unwrap();
+                let resolve = resolve.clone();
+                let content_promise = resp.array_buffer().expect("Should have a body");
+                let content_closure =
+                    Closure::<dyn FnMut(JsValue)>::new(move |content: JsValue| {
+                        let content: ArrayBuffer = content.dyn_into().unwrap();
+                        let rusty_content = Uint8Array::new(&content).to_vec();
+                        let decompressed = flate2::read::GzDecoder::new(&rusty_content[..]);
+                        let mut archive = tar::Archive::new(decompressed);
+                        archive
+                            .entries()
+                            .expect("Could not read entries")
                             .into_iter()
-                            .map(|byte| byte.expect("Could not read byte"))
-                            .collect();
-                        lfs.set_bytes(file_path, &bytes[..]);
+                            .for_each(|entry| {
+                                let entry = entry.expect("Could not read entry");
+                                let path = entry.path().expect("Could not read path");
+                                let package_dir = closure_package_dir.clone();
+                                let file_path = package_dir.join(path);
+                                let file_path =
+                                    file_path.to_str().expect("Could not convert Path to str");
+                                let bytes: Vec<u8> = entry
+                                    .bytes()
+                                    .into_iter()
+                                    .map(|byte| byte.expect("Could not read byte"))
+                                    .collect();
+                                lfs.set_bytes(file_path, &bytes[..]);
+                            });
+                        resolve.call0(&JsValue::null());
                     });
+                content_promise.then(&content_closure);
+                content_closure.forget();
             });
-            content_promise.then(&content_closure);
-            content_closure.forget();
+            dl_promise.then(&dl_closure);
+            dl_closure.forget();
         });
-        dl_promise.then(&dl_closure);
-        dl_closure.forget();
+        // return Promise::resolve(&JsValue::null());
     }
 }
