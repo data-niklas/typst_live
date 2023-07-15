@@ -1,17 +1,21 @@
 use comemo::Prehashed;
+use flate2::Compression;
 use once_cell::unsync::OnceCell;
+use std::io::prelude::*;
+use std::io::Write;
+use std::path::Path;
 use std::pin::Pin;
 use std::{io::Read, ptr::read};
-use std::path::Path;
+use time::{Date, Month};
 use typst::file::FileId;
 use typst::geom::Color;
-use time::{Date, Month};
-
 
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
 use web_sys::Blob;
 
+use flate2::read::ZlibDecoder;
+use flate2::write::ZlibEncoder;
 use typst::{
     diag::{FileError, FileResult},
     eval::Library,
@@ -25,10 +29,12 @@ extern crate console_error_panic_hook;
 use std::panic;
 
 pub mod compat;
+mod file;
 pub mod lfs;
 pub mod package;
-mod file;
 use file::VFS;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::Engine as _;
 
 pub static MAIN_SOURCE_NAME: &'static str = "/main.typ";
 
@@ -37,11 +43,29 @@ fn main() {
 }
 
 #[wasm_bindgen]
+pub fn encode_string_into_url(text: &str) -> Option<String> {
+    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::best());
+    encoder.write_all(text.as_bytes()).ok()?;
+    let bytes = encoder.finish().ok()?;
+    // hex::encode(bytes)
+    Some(URL_SAFE_NO_PAD.encode(bytes))
+}
+
+#[wasm_bindgen]
+pub fn decode_string_from_url(bytes: &str) -> Option<String> {
+    let bytes = URL_SAFE_NO_PAD.decode(bytes).ok()?;
+    let mut decoder = ZlibDecoder::new(&bytes[..]);
+    let mut result = String::new();
+    decoder.read_to_string(&mut result).ok()?;
+    Some(result)
+}
+
+#[wasm_bindgen]
 pub struct SystemWorld {
     library: Prehashed<Library>,
     book: Prehashed<FontBook>,
     fonts: Vec<FontSlot>,
-    vfs: VFS
+    vfs: VFS,
 }
 
 impl SystemWorld {
@@ -97,7 +121,7 @@ impl SystemWorld {
             library: Prehashed::new(typst_library::build()),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
-            vfs: VFS::new()
+            vfs: VFS::new(),
         }
     }
 
@@ -138,9 +162,7 @@ impl SystemWorld {
             .collect();
         Ok(urls)
     }
-
 }
-
 
 impl World for SystemWorld {
     fn packages(&self) -> &[(typst::file::PackageSpec, Option<typst::diag::EcoString>)] {
@@ -164,11 +186,9 @@ impl World for SystemWorld {
         &self.book
     }
 
-
     fn main(&self) -> Source {
         self.vfs.get_main()
     }
-
 
     fn font(&self, id: usize) -> Option<Font> {
         let slot = &self.fonts[id];

@@ -1531,6 +1531,7 @@ dependencies = [
 name = "typst_live"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "comemo",
  "console_error_panic_hook",
  "flate2",

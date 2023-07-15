@@ -133,18 +133,25 @@ function enableDialogs(packageManager){
   })
 }
 
-function loadFromURL(){
+function loadFromURL(decode_url){
   let path = window.location.search.slice(1)
   if (path.length <= 5)return
   let code = decodeURIComponent(path.slice(5))
+  code = decode_url(code)
   document.getElementById("code").value = code
-  if (code != "")recompile(code)
+  if (code != null && code != ""){
+    recompile(code)
+  }
+  else {
+    window.location.search = ""
+  }
 }
 
 function onCodeChange(){
       let code = document.getElementById("code").value
-      let encoded_code = encodeURIComponent(code)
-      window.history.replaceState(window.history.state, "", "/?text=" + encoded_code)
+      // let encoded_code = encodeURIComponent(code)
+    let encoded_code = rust.encode_string_into_url(code)
+    if (encoded_code != null)window.history.replaceState(window.history.state, "", "/?text=" + encoded_code)
       recompile(code)
 }
 
@@ -169,14 +176,14 @@ function setCompileOnWrite(enable){
     code.addEventListener("keydown", onCtrlS)
   }
 }
-
+let rust = null
 document.addEventListener('wasmload', async function() {
   enableTab()
   enableSplit()
-  let rust = await import(window.bindingsfile)
+  rust = await import(window.bindingsfile)
   typst = new rust.SystemWorld();
   pm = new rust.PackageManager();
   enableDialogs(pm)
-  loadFromURL()
+  loadFromURL(rust.decode_string_from_url)
   enableSaveToggle()
 })
