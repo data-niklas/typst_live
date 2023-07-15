@@ -73,17 +73,27 @@ async function recompile(code){
       }
 }
 
-function enablePrompt(){
-  let promptDialog = document.getElementById("prompt-dialog")
-  let promptInput = document.getElementById("prompt")
-  promptInput.value = ""
+function updatePackageList(packageManager){
+  // TODO list all packages
+}
+
+
+let dialogs = []
+function enablePackageDialog(packageManager){
+  let packageDialog = document.getElementById("package-dialog")
+  dialogs.push(packageDialog)
+  let packageButton = document.getElementById("package-button")
+  packageButton.addEventListener("click", _=>{
+    updatePackageList(packageManager)
+    packageDialog.showModal()
+  })
+}
+
+function enableDialogs(packageManager){
+  enablePackageDialog(packageManager)
   window.addEventListener("keydown", e=>{
-    if (e.ctrlKey && e.key === 'p') {
-      e.preventDefault();
-      promptDialog.showModal()
-    }
-    else if (e.key === 'Escape') {
-      promptDialog.close();
+    if (e.key === 'Escape') {
+      dialogs.forEach(dialog=>dialog.close())
     }
   })
 }
@@ -128,9 +138,10 @@ function setCompileOnWrite(enable){
 document.addEventListener('wasmload', async function() {
   enableTab()
   enableSplit()
-  enablePrompt()
   let rust = await import(window.bindingsfile)
   typst = new rust.SystemWorld();
+  pm = new rust.PackageManager();
+  enableDialogs(pm)
   loadFromURL()
   enableSaveToggle()
 })

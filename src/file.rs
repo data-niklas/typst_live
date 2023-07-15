@@ -1,5 +1,4 @@
 use crate::{SystemWorld, MAIN_SOURCE_NAME};
-use localstoragefs::fs::File;
 use once_cell::unsync::OnceCell;
 use siphasher::sip128::{Hasher128, SipHasher13};
 use std::cell::{RefCell, RefMut};
@@ -17,28 +16,17 @@ use typst::{
     World,
 };
 
-use crate::package::PackageManager;
+use crate::package::prepare_package;
+use crate::lfs::LFS;
 
-fn read_file_to_string(mut file: File) -> String {
-    let mut buffer = String::new();
-    file.read_to_string(&mut buffer)
-        .expect("File could not be read into String");
-    buffer
-}
 
-fn read_file_to_bytes(mut file: File) -> Vec<u8> {
-    let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer)
-        .expect("File could not be read into buffer");
-    buffer
-}
 
 pub struct VFS {
     main: Option<Source>,
     main_id: FileId,
     hashes: RefCell<HashMap<FileId, FileResult<PathHash>>>,
     paths: RefCell<HashMap<PathHash, PathSlot>>,
-    package_manager: PackageManager
+    lfs: LFS
 }
 
 impl VFS {
@@ -48,7 +36,7 @@ impl VFS {
             main_id: FileId::new(None, Path::new(MAIN_SOURCE_NAME)),
             hashes: RefCell::default(),
             paths: RefCell::default(),
-            package_manager: PackageManager::new()
+            lfs: LFS::new()
         }
     }
     pub fn source(&self, id: FileId) -> Result<Source, FileError> {
@@ -87,7 +75,7 @@ impl VFS {
                 // Determine the root path relative to which the file path
                 // will be resolved.
                 let root = match id.package() {
-                    Some(spec) => self.package_manager.prepare_package(spec)?,
+                    Some(spec) => prepare_package(spec)?,
                     None => Path::new("/").to_owned(),
                 };
 
@@ -157,9 +145,12 @@ impl PathHash {
 
 /// Read a file.
 fn read(path: &Path) -> FileResult<Vec<u8>> {
-    let f = |e| FileError::from_io(e, path);
-    let file = File::open(path).map_err(f)?;
-    Ok(read_file_to_bytes(file))
+    let lfs = LFS::new();
+    let key = path.to_str().ok_or(FileError::Other)?;
+    if !lfs.exists(key) {
+        return Err(FileError::NotFound(path.to_owned()));
+    }
+    lfs.get_bytes(key).ok_or(FileError::Other)
 }
 
 /// Decode UTF-8 with an optional BOM.

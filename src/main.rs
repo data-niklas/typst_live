@@ -23,6 +23,8 @@ use typst::{
 extern crate console_error_panic_hook;
 use std::panic;
 
+pub mod compat;
+pub mod lfs;
 pub mod package;
 mod file;
 use file::VFS;
@@ -98,7 +100,7 @@ impl SystemWorld {
         }
     }
 
-    pub  fn compile_to_pdf(&mut self, source: String) -> Result<String, JsValue> {
+    pub fn compile_to_pdf(&mut self, source: String) -> Result<String, JsValue> {
         let bytes = self.compile_to_pdf_bytes(source)?;
         let uint8arr = js_sys::Uint8Array::new(&unsafe { js_sys::Uint8Array::view(&bytes) }.into());
         let array = js_sys::Array::new();
@@ -110,7 +112,7 @@ impl SystemWorld {
         web_sys::Url::create_object_url_with_blob(&blob)
     }
 
-    pub  fn compile_to_images(
+    pub fn compile_to_images(
         &mut self,
         source: String,
         pixel_per_pt: f32,

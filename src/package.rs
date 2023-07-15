@@ -1,11 +1,17 @@
-use js_sys::{ArrayBuffer, Uint8Array};
-use localstoragefs::fs::File;
+use crate::compat::{WasmPackageSpec, WasmVersion};
+use crate::lfs::LFS;
+use js_sys::{Array, ArrayBuffer, JsString, Uint8Array};
 use std::io::Write;
+use std::marker::Copy;
+use std::str::FromStr;
+use std::string::String;
+use std::sync::Arc;
 use std::{
     io::Read,
     path::{Path, PathBuf},
 };
 use typst::diag::EcoString;
+use typst::file::Version;
 use typst::{
     diag::{PackageError, PackageResult},
     file::PackageSpec,
@@ -14,68 +20,69 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{spawn_local, JsFuture};
 use web_sys::console;
 use web_sys::{Request, RequestInit, RequestMode, Response};
-// use std::sync::mpsc::channel;
-pub struct PackageManager {}
+use regex::Regex;
 
+pub fn prepare_package(spec: &PackageSpec) -> PackageResult<PathBuf> {
+    if spec.namespace != "preview" {
+        return Err(PackageError::Other);
+    }
+    let subdir = format!("packages/{}/{}-{}", spec.namespace, spec.name, spec.version);
+    let subdir_key = subdir.clone() + "/.";
+    if !LFS::new().exists(&subdir_key) {
+        console::log_1(&"Package does not exist".into());
+        return Err(PackageError::NotFound(spec.clone()));
+    }
+    Ok(Path::new(&subdir).to_owned())
+}
+
+#[wasm_bindgen]
+pub struct PackageManager {
+    lfs: Arc<LFS>,
+}
+
+const PACKAGE_SPEC_REGEX: &str = r"packages/([^/]+)/([^-]+)-([0-9]+).([0-9]+).([0-9]+)";
+
+#[wasm_bindgen]
 impl PackageManager {
+    #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        let it = Self {};
-        let spec = PackageSpec {
-            namespace: "preview".into(),
-            name: "syntree".into(),
-            version: typst::file::Version {
-                major: 0,
-                minor: 1,
-                patch: 0,
-            },
-        };
-        it.prepare_package(&spec);
-        it
-    }
-    fn package_exists(spec: &PackageSpec) -> bool {
-        let toml_file = format!(
-            "packages/{}/{}-{}/typst.toml",
-            spec.namespace, spec.name, spec.version
-        );
-        let toml_path = Path::new(&toml_file);
-        match File::open(toml_path) {
-            Ok(_) => true,
-            Err(_) => false,
+        Self {
+            lfs: Arc::new(LFS::new()),
         }
     }
 
-    pub fn prepare_package(&self, spec: &PackageSpec) -> PackageResult<PathBuf> {
-        if spec.namespace != "preview" {
-            return Err(PackageError::Other);
-        }
-        let subdir = format!("packages/{}/{}-{}", spec.namespace, spec.name, spec.version);
-
-        if !Self::package_exists(spec) {
-            console::log_1(&"Package does not exist".into());
-            self.download_package(spec, Path::new(&subdir))?
-        }
-        Ok(Path::new(&subdir).to_owned())
+    pub fn list_packages(&self) -> Array {
+        let keys: Vec<String> = self.lfs.list();
+        let installed_package_paths: Vec<String> = keys
+            .into_iter()
+            .filter(|key| key.starts_with("packages/") && key.ends_with("/."))
+            .collect();
+        let packages: Vec<WasmPackageSpec> = installed_package_paths
+            .into_iter()
+            .map(|path: String| {
+                let captures_regex = Regex::new(PACKAGE_SPEC_REGEX).unwrap();
+                let captures = captures_regex.captures(&path).unwrap();
+                let namespace = captures[1].to_owned();
+                let name = captures[2].to_owned();
+                let major = captures[3].parse().expect("");
+                let minor = captures[4].parse().expect("");
+                let patch = captures[5].parse().expect("");
+                let version = WasmVersion::new(major, minor, patch);
+                WasmPackageSpec::new(namespace, name, version)
+            })
+            .collect();
+        packages.into_iter().map(JsValue::from).collect()
     }
-
-    // fn download_sync(&self, url: String) -> PackageResult<Vec<u8>> {
-    //     // let future_response = JsFuture::from(window.fetch_with_request(&request));
-    //     // let (tx, mut rx) = mpsc::channel(1);
-    //     // executor::spawn(async move {
-    //     // let resp_value = future_response.await.expect("");
-    //     // assert!(resp_value.is_instance_of::<Response>());
-    //     // let resp: Response = resp_value.dyn_into().unwrap();
-    //     // let content_promise = resp.array_buffer().expect("Should have a body");
-    //     // let content = JsFuture::from(content_promise).await.expect("Could not get response");
-    //     // let rusty_content = Uint8Array::new(&content).to_vec();
-    //     // tx.send(rusty_content);
-    //     // });
-    //     // Ok(rx.blocking_recv().expect("Could not unwrap option"))
-    // }
 
     /// Download a package over the network.
-    fn download_package(&self, spec: &PackageSpec, package_dir: &Path) -> PackageResult<()> {
+    pub fn download_package(&self, spec: &WasmPackageSpec) {
         // The `@preview` namespace is the only namespace that supports on-demand
         // fetching.
+        if self.lfs.exists(&spec.package_directory_key()) {
+            return;
+        }
+        let package_dir = spec.package_directory();
+        let package_dir = Path::new(&package_dir);
         assert_eq!(spec.namespace, "preview");
 
         let closure_package_dir = package_dir.to_owned();
@@ -87,12 +94,15 @@ impl PackageManager {
         let mut opts = RequestInit::new();
         opts.method("GET");
         opts.mode(RequestMode::Cors);
-        let request =
-            Request::new_with_str_and_init(&url, &opts).map_err(|_| PackageError::Other)?;
+        let request = Request::new_with_str_and_init(&url, &opts)
+            .map_err(|_| PackageError::Other)
+            .expect("Could not send request");
+        let lfs = self.lfs.clone();
         let window = web_sys::window().expect("Could not get window");
         let dl_promise = window.fetch_with_request(&request);
         let dl_closure = Closure::<dyn FnMut(JsValue)>::new(move |resp_value: JsValue| {
             let closure_package_dir = closure_package_dir.clone();
+            let lfs = lfs.clone();
             assert!(resp_value.is_instance_of::<Response>());
             let resp: Response = resp_value.dyn_into().unwrap();
             let content_promise = resp.array_buffer().expect("Should have a body");
@@ -110,14 +120,13 @@ impl PackageManager {
                         let path = entry.path().expect("Could not read path");
                         let package_dir = closure_package_dir.clone();
                         let file_path = package_dir.join(path);
-                        let mut file =
-                            File::create(file_path.clone()).expect("Could not create file");
+                        let file_path = file_path.to_str().expect("Could not convert Path to str");
                         let bytes: Vec<u8> = entry
                             .bytes()
                             .into_iter()
                             .map(|byte| byte.expect("Could not read byte"))
                             .collect();
-                        file.write_all(&bytes[..]);
+                        lfs.set_bytes(file_path, &bytes[..]);
                     });
             });
             content_promise.then(&content_closure);
@@ -125,6 +134,5 @@ impl PackageManager {
         });
         dl_promise.then(&dl_closure);
         dl_closure.forget();
-        Ok(())
     }
 }

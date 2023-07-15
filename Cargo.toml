@@ -24,11 +24,16 @@ web-sys = { version = "0.3.61", features = [
   "Response",
   "ReadableStream",
   "console",
+  "Storage",
   "Window"]}
 js-sys = "0.3.61"
-localstoragefs = "0.1.0"
 comemo = "0.3.0"
 siphasher = "0.3.10"
 flate2 = "1.0.26"
 tar = "0.4.38"
 wasm-bindgen-futures = "0.4.34"
+hex = "0.4.3"
+regex = "1.9.1"
+
+[profile.release]
+lto = true
