@@ -35,8 +35,7 @@ function enableSplit(){
 }
 
 function enableSaveToggle(){
-  let saveToggle = document.getElementById("savetoggle")
-  let toggle = saveToggle.firstElementChild
+  let toggle = document.getElementById("save-toggle")
   setCompileOnWrite(!toggle.checked)
   toggle.addEventListener('change', ()=>{
     setCompileOnWrite(!toggle.checked)
