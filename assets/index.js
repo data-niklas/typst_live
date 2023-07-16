@@ -124,8 +124,18 @@ function enablePackageDialog(packageManager){
   packageInput.value = ""
 }
 
+function enableSettingsDialog(){
+  let settingsDialog = document.getElementById("settings-dialog")
+  dialogs.push(settingsDialog)
+  let settingsButton = document.getElementById("settings-button")
+  settingsButton.addEventListener("click", _=>{
+    settingsDialog.showModal()
+  })
+}
+
 function enableDialogs(packageManager){
   enablePackageDialog(packageManager)
+  enableSettingsDialog()
   window.addEventListener("keydown", e=>{
     if (e.key === 'Escape') {
       dialogs.forEach(dialog=>dialog.close())
@@ -145,6 +155,11 @@ function loadFromURL(decode_url){
   else {
     window.location.search = ""
   }
+}
+
+function enableVersion(typst){
+  let version = document.getElementById("version")
+  version.textContent = "v" + typst.version()
 }
 
 function onCodeChange(){
@@ -183,6 +198,7 @@ document.addEventListener('wasmload', async function() {
   rust = await import(window.bindingsfile)
   typst = new rust.SystemWorld();
   pm = new rust.PackageManager();
+  enableVersion(rust)
   enableDialogs(pm)
   loadFromURL(rust.decode_string_from_url)
   enableSaveToggle()

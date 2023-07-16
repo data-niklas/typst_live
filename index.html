@@ -24,12 +24,10 @@
       <button id="settings-button">Settings</button>
       <button id="package-button">Packages</button>
       <button id="about-button">About</button>
+      <div class="buffer"></div>
       <a href="https://github.com/data-niklas/typst_live">Github</a>
+      <label id="version"></label>
     </div>
-    <label style="display: none" class="switch" id="savetoggle" title="Auto save / Ctrl+S">
-      <input type="checkbox">
-      <span class="slider"></span>
-    </label>
     <dialog id="package-dialog">
       <h1>Installed packages</h1>
       <table>
@@ -43,6 +41,15 @@
       </table>
       <h1>Install package</h1>
       <input type="text" id="package-input" placeholder="@namespace/name:version"/>
+    </dialog>
+    <dialog id="settings-dialog">
+      <h1>Settings</h1>
+      <h2>Save:</h2>
+      <div class="row">
+        Automatically
+        <input type="checkbox" class="toggle" id="save-toggle" /><label class="toggle" for="save-toggle">Toggle</label>
+        Ctrl+S
+      </div>
     </dialog>
   </body>
 </html>

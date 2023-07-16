@@ -43,6 +43,11 @@ fn main() {
 }
 
 #[wasm_bindgen]
+pub fn version() -> String{
+    env!("CARGO_PKG_VERSION").to_owned()
+}
+
+#[wasm_bindgen]
 pub fn encode_string_into_url(text: &str) -> Option<String> {
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::best());
     encoder.write_all(text.as_bytes()).ok()?;
