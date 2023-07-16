@@ -1,14 +1,19 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
-    <link data-trunk rel="css" href="assets/index.css">
-    <link data-trunk rel="copy-file" href="assets/index.js">
+    <link data-trunk rel="css" href="assets/index.css" />
+    <link data-trunk rel="copy-file" href="assets/index.js" />
     <link data-trunk rel="css" href="assets/simple-notify.min.css" />
-    <link data-trunk rel="copy-file" href="assets/simple-notify.min.js">
-    <link data-trunk rel="copy-file" href="assets/split-grid.js">
-    <link data-trunk rel="copy-dir" href="assets/fonts/" data-target-path="fonts">
-    <link data-trunk rel="rust" data-wasm-opt="s">
-<!-- JS -->
+    <link data-trunk rel="copy-file" href="assets/simple-notify.min.js" />
+    <link data-trunk rel="copy-file" href="assets/split-grid.js" />
+    <link
+      data-trunk
+      rel="copy-dir"
+      href="assets/fonts/"
+      data-target-path="fonts"
+    />
+    <link data-trunk rel="rust" data-wasm-opt="s" />
+    <!-- JS -->
     <script data-trunk src="./simple-notify.min.js"></script>
     <script data-trunk src="./index.js"></script>
     <script data-trunk src="./split-grid.js"></script>
@@ -18,7 +23,7 @@
       <textarea id="code"></textarea>
       <div class="gutter-col gutter-col-1"></div>
       <div id="output">
-        <embed id="pdf" type="application/pdf"></embed>
+        <embed id="pdf" type="application/pdf" />
       </div>
     </div>
     <div id="footer">
@@ -34,21 +39,31 @@
       <h1>Installed packages</h1>
       <table>
         <thead>
-        <tr>
-          <th>Namespace</th><th>Name</th><th>Version</th><th> </th>
-        </tr>
+          <tr>
+            <th>Namespace</th>
+            <th>Name</th>
+            <th>Version</th>
+            <th></th>
+          </tr>
         </thead>
-        <tbody id="package-list">
-        </tbody>
+        <tbody id="package-list"></tbody>
       </table>
       <h1>Install package</h1>
-      <input type="text" id="package-input" placeholder="@namespace/name:version"/>
+      <input
+        type="text"
+        id="package-input"
+        placeholder="@namespace/name:version"
+      />
     </dialog>
     <dialog id="settings-dialog">
       <h2>Save:</h2>
       <div class="row">
         Automatically
-        <input type="checkbox" class="toggle" id="save-toggle" /><label class="toggle" for="save-toggle">Toggle</label>
+        <input type="checkbox" class="toggle" id="save-toggle" /><label
+          class="toggle"
+          for="save-toggle"
+          >Toggle</label
+        >
         Ctrl+S
       </div>
     </dialog>
