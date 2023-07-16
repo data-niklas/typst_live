@@ -86,9 +86,9 @@ function packageToRow(packageManager, pkg){
   namespace.textContent = pkg.namespace
   version.textContent = pkg.version.major + "." + pkg.version.minor + "." + pkg.version.patch
 
+  row.appendChild(namespace)
   row.appendChild(name)
   row.appendChild(version)
-  row.appendChild(namespace)
   row.appendChild(deleteElement)
   return row
 }

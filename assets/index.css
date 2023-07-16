@@ -76,6 +76,7 @@ textarea {
 input.toggle[type=checkbox]{
 	height: 0;
 	width: 0;
+  margin: 0;
 	visibility: hidden;
 }
 
@@ -179,9 +180,17 @@ tbody > tr:hover > td {
 #package-input {
   min-width: 400px;
 }
+.row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
 .row > *{
   display: inline-block;
 }
 .buffer {
   margin: auto;
+}
+#save-toggle + label {
+  margin: 0 8px;
 }
