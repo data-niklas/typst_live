@@ -1,4 +1,9 @@
 let split = import('./split-grid.js')
+const FONT_NAMES = [
+  "DejaVuSansMono-BoldOblique.ttf", "LinLibertine_RBI.ttf", "NewCM10-BoldItalic.otf", "NewCMMath-Book.otf", "DejaVuSansMono-Bold.ttf","LinLibertine_RB.ttf", "NewCM10-Bold.otf","NewCMMath-Regular.otf",
+"DejaVuSansMono-Oblique.ttf", "LinLibertine_RI.ttf","NewCM10-Italic.otf",
+"DejaVuSansMono.ttf","LinLibertine_R.ttf","NewCM10-Regular.otf"
+]
 
 function debounce(fn, timeout){
   let pending = null
@@ -40,6 +45,34 @@ function enableSaveToggle(){
   toggle.addEventListener('change', ()=>{
     setCompileOnWrite(!toggle.checked)
   })
+}
+
+function loadFonts(typst){
+  let promises = FONT_NAMES.map(font=>{
+    return new Promise((resolve, reject)=>{
+      fetch(`fonts/${font}`).then(response=>{
+        response.arrayBuffer().then(resolve, reject)
+      }, reject)
+    })
+  })
+  Promise.all(promises).then(buffers=>{
+    typst.add_fonts(buffers)
+  })
+}
+
+function enableFontToggle(typst){
+  let toggle = document.getElementById("font-toggle")
+  if (toggle.checked)loadFonts(typst)
+  toggle.addEventListener('change', ()=>{
+    if (toggle.checked){
+      loadFonts(typst)
+    }
+  })
+}
+
+function enableSettings(typst){
+    enableSaveToggle()
+  enableFontToggle(typst)
 }
 
 const TIMEOUT = 500
@@ -200,5 +233,5 @@ document.addEventListener('wasmload', async function() {
   enableVersion(rust)
   enableDialogs(pm)
   loadFromURL(rust.decode_string_from_url)
-  enableSaveToggle()
+  enableSettings(typst)
 })

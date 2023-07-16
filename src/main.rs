@@ -3,6 +3,7 @@ use flate2::Compression;
 use once_cell::unsync::OnceCell;
 use std::io::prelude::*;
 use std::io::Write;
+use std::mem;
 use std::path::Path;
 use std::pin::Pin;
 use std::{io::Read, ptr::read};
@@ -10,7 +11,7 @@ use time::{Date, Month};
 use typst::file::FileId;
 use typst::geom::Color;
 
-use js_sys::Array;
+use js_sys::{Array, ArrayBuffer};
 use wasm_bindgen::prelude::*;
 use web_sys::Blob;
 
@@ -32,9 +33,9 @@ pub mod compat;
 mod file;
 pub mod lfs;
 pub mod package;
-use file::VFS;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
+use file::VFS;
 
 pub static MAIN_SOURCE_NAME: &'static str = "/main.typ";
 
@@ -43,7 +44,7 @@ fn main() {
 }
 
 #[wasm_bindgen]
-pub fn version() -> String{
+pub fn version() -> String {
     env!("CARGO_PKG_VERSION").to_owned()
 }
 
@@ -119,13 +120,10 @@ impl SystemWorld {
 impl SystemWorld {
     #[wasm_bindgen(constructor)]
     pub fn new() -> SystemWorld {
-        let mut searcher = FontSearcher::new();
-        searcher.add_embedded();
-
         Self {
             library: Prehashed::new(typst_library::build()),
-            book: Prehashed::new(searcher.book),
-            fonts: searcher.fonts,
+            book: Prehashed::new(FontBook::new()),
+            fonts: vec![],
             vfs: VFS::new(),
         }
     }
@@ -166,6 +164,25 @@ impl SystemWorld {
             })
             .collect();
         Ok(urls)
+    }
+
+    pub fn add_fonts(&mut self, fonts: Array) {
+        let hashed_book = mem::replace(&mut self.book, Prehashed::default());
+        let mut book: FontBook = hashed_book.into_inner();
+        fonts.for_each(&mut |font: JsValue, _, _| {
+            let bytes: ArrayBuffer = font.dyn_into().unwrap();
+            let bytes = js_sys::Uint8Array::new(&bytes).to_vec();
+            let buffer = Bytes::from(&bytes[..]);
+            for (i, font) in Font::iter(buffer.clone()).enumerate() {
+                book.push(font.info().clone());
+                self.fonts.push(FontSlot {
+                    buffer: buffer.clone(),
+                    index: i as u32,
+                    font: OnceCell::from(Some(font)),
+                });
+            }
+        });
+        self.book = Prehashed::new(book);
     }
 }
 
@@ -216,46 +233,4 @@ struct FontSlot {
     buffer: Bytes,
     index: u32,
     font: OnceCell<Option<Font>>,
-}
-
-struct FontSearcher {
-    book: FontBook,
-    fonts: Vec<FontSlot>,
-}
-
-impl FontSearcher {
-    fn new() -> Self {
-        Self {
-            book: FontBook::new(),
-            fonts: vec![],
-        }
-    }
-
-    fn add_embedded(&mut self) {
-        let mut add = |bytes: &'static [u8]| {
-            let buffer = Bytes::from_static(bytes);
-            for (i, font) in Font::iter(buffer.clone()).enumerate() {
-                self.book.push(font.info().clone());
-                self.fonts.push(FontSlot {
-                    buffer: buffer.clone(),
-                    index: i as u32,
-                    font: OnceCell::from(Some(font)),
-                });
-            }
-        };
-
-        // Embed default fonts.
-        add(include_bytes!("../assets/fonts/LinLibertine_R.ttf"));
-        add(include_bytes!("../assets/fonts/LinLibertine_RB.ttf"));
-        add(include_bytes!("../assets/fonts/LinLibertine_RBI.ttf"));
-        add(include_bytes!("../assets/fonts/LinLibertine_RI.ttf"));
-        add(include_bytes!("../assets/fonts/NewCMMath-Book.otf"));
-        add(include_bytes!("../assets/fonts/NewCMMath-Regular.otf"));
-        add(include_bytes!("../assets/fonts/DejaVuSansMono.ttf"));
-        add(include_bytes!("../assets/fonts/DejaVuSansMono-Bold.ttf"));
-        add(include_bytes!("../assets/fonts/DejaVuSansMono-Oblique.ttf"));
-        add(include_bytes!(
-            "../assets/fonts/DejaVuSansMono-BoldOblique.ttf"
-        ));
-    }
 }
