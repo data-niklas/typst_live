@@ -57,22 +57,14 @@ function loadFonts(typst){
   })
   Promise.all(promises).then(buffers=>{
     typst.add_fonts(buffers)
+    let code = document.getElementById("code").value
+    recompile(code)
   })
 }
 
-function enableFontToggle(typst){
-  let toggle = document.getElementById("font-toggle")
-  if (toggle.checked)loadFonts(typst)
-  toggle.addEventListener('change', ()=>{
-    if (toggle.checked){
-      loadFonts(typst)
-    }
-  })
-}
 
 function enableSettings(typst){
     enableSaveToggle()
-  enableFontToggle(typst)
 }
 
 const TIMEOUT = 500
@@ -181,10 +173,7 @@ function loadFromURL(decode_url){
   let code = decodeURIComponent(path.slice(5))
   code = decode_url(code)
   document.getElementById("code").value = code
-  if (code != null && code != ""){
-    recompile(code)
-  }
-  else {
+  if (code == null){
     window.location.search = ""
   }
 }
@@ -234,4 +223,5 @@ document.addEventListener('wasmload', async function() {
   enableDialogs(pm)
   loadFromURL(rust.decode_string_from_url)
   enableSettings(typst)
+  loadFonts(typst)
 })
