@@ -67,5 +67,16 @@
         Ctrl+S
       </div>
     </dialog>
+    <dialog id="about-dialog">
+      <h2>Goal</h2>
+      <p>Creating a quick and simple way to test Typst code without needing to install Typst.</p>
+
+      <h2>How to install packages</h2>
+      <p>
+      Packages consist of a <b>namespace</b>, <b>name</b> and <b>version</b>. To install a package, go to <b>Packages -> Install package</b>. Then paste your package into the input field and press enter.<br>The package needs to be in the format <b>@namespace/name:version</b>.
+      <br>Example: <b>@preview/syntree:0.1.0</b><br>
+      Usually you would obtain that string by copying from an import directive in your Typst document.<br>Currently only packages under the preview namespace are supported. For a list of all packages, visit <a href="https://typst.app/docs/packages/">the official Typst page</a>
+      </p>
+    </dialog>
   </body>
 </html>

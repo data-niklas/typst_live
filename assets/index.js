@@ -186,9 +186,19 @@ function enableSettingsDialog() {
   });
 }
 
+function enableAboutDialog() {
+  let aboutDialog = document.getElementById("about-dialog");
+  closeOnBackdropClick(aboutDialog)
+  dialogs.push(aboutDialog);
+  let aboutButton = document.getElementById("about-button");
+  aboutButton.addEventListener("click", (_) => {
+    aboutDialog.showModal();
+  });
+}
 function enableDialogs(packageManager) {
   enablePackageDialog(packageManager);
   enableSettingsDialog();
+  enableAboutDialog();
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       dialogs.forEach((dialog) => dialog.close());
