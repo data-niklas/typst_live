@@ -24,6 +24,17 @@ function debounce(fn, timeout) {
   };
 }
 
+function closeOnBackdropClick(dialog){
+  dialog.addEventListener('click', function(event) {
+    var rect = dialog.getBoundingClientRect();
+    var isInDialog = (rect.top <= event.clientY && event.clientY <= rect.top + rect.height &&
+      rect.left <= event.clientX && event.clientX <= rect.left + rect.width);
+    if (!isInDialog) {
+      dialog.close();
+    }
+  });
+}
+
 function enableTab() {
   let textarea = document.getElementById("code");
   textarea.addEventListener("keydown", (e) => {
@@ -146,6 +157,7 @@ let dialogs = [];
 
 function enablePackageDialog(packageManager) {
   let packageDialog = document.getElementById("package-dialog");
+  closeOnBackdropClick(packageDialog)
   dialogs.push(packageDialog);
   let packageButton = document.getElementById("package-button");
   packageButton.addEventListener("click", (_) => {
@@ -166,6 +178,7 @@ function enablePackageDialog(packageManager) {
 
 function enableSettingsDialog() {
   let settingsDialog = document.getElementById("settings-dialog");
+  closeOnBackdropClick(settingsDialog)
   dialogs.push(settingsDialog);
   let settingsButton = document.getElementById("settings-button");
   settingsButton.addEventListener("click", (_) => {
