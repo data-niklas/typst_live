@@ -1,4 +1,5 @@
 let split = import("./split-grid.js");
+const TIMEOUT = 500;
 const FONT_NAMES = [
   "DejaVuSansMono-BoldOblique.ttf",
   "LinLibertine_RBI.ttf",
@@ -18,40 +19,185 @@ const FONT_NAMES = [
 
 function debounce(fn, timeout) {
   let pending = null;
-  return function () {
+  return function() {
     clearTimeout(pending);
     pending = setTimeout(fn, timeout);
   };
 }
 
-function closeOnBackdropClick(dialog){
-  dialog.addEventListener('click', function(event) {
-    var rect = dialog.getBoundingClientRect();
-    var isInDialog = (rect.top <= event.clientY && event.clientY <= rect.top + rect.height &&
-      rect.left <= event.clientX && event.clientX <= rect.left + rect.width);
-    if (!isInDialog) {
-      dialog.close();
-    }
+class PackageManager{
+  constructor(bindings){
+    this.bindings = new bindings.PackageManager()
+    this.enablePackageInstallation()
+  }
+
+  packageToRow(pkg) {
+  let row = document.createElement("tr");
+  let name = document.createElement("td");
+  let namespace = document.createElement("td");
+  let version = document.createElement("td");
+  let deleteElement = document.createElement("td");
+  let deleteButton = document.createElement("button");
+  deleteButton.addEventListener("click", (_) => {
+    this.bindings.delete_package(pkg);
+    this.updatePackageList();
   });
+  deleteButton.textContent = "X";
+  deleteElement.appendChild(deleteButton);
+  name.textContent = pkg.name;
+  namespace.textContent = pkg.namespace;
+  version.textContent =
+    pkg.version.major + "." + pkg.version.minor + "." + pkg.version.patch;
+
+  row.appendChild(namespace);
+  row.appendChild(name);
+  row.appendChild(version);
+  row.appendChild(deleteElement);
+  return row;
 }
 
-function enableTab() {
-  let textarea = document.getElementById("code");
-  textarea.addEventListener("keydown", (e) => {
-    if (e.keyCode === 9) {
-      e.preventDefault();
-
-      textarea.setRangeText(
-        "  ",
-        textarea.selectionStart,
-        textarea.selectionStart,
-        "end",
-      );
-    }
-  });
+updatePackageList() {
+  let packageList = document.getElementById("package-list");
+  let packages = this.bindings.list_packages();
+  let rows = packages.map(this.packageToRow);
+  packageList.replaceChildren(...rows);
 }
 
-function enableSplit() {
+
+enablePackageInstallation() {
+  let packageInput = document.getElementById("package-input");
+  packageInput.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      this.bindings.download_package_from_str(packageInput.value).then(_ => {
+        this.updatePackageList();
+        packageInput.value = "";
+      });
+    }
+  });
+  packageInput.value = "";
+}
+}
+
+class App {
+  constructor(){
+    this.initPre()
+    document.addEventListener("wasmload", event => {
+      this.initWasm(event.detail.bindings)
+      this.initPost()
+    })
+  }
+
+
+  initPre(){
+    this.initDialogs()
+    this.initCode()
+    this.initSplit()
+  }
+
+  initWasm(bindings){
+    this.bindings = bindings
+    this.typst = new bindings.SystemWorld()
+    this.packageManager = new PackageManager(bindings)
+  }
+
+  initPost(){
+    this.initCodePost()
+    this.initVersion()
+    this.initSettingsPost()
+    this.initFonts()
+  }
+
+  initDialogs(){
+    this.dialogs = []
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        this.dialogs.forEach(dialog => dialog.close())
+      }
+    })
+    // init packages before initDialog, such that packages are updates, before dialog is shown
+    this.initPackages()
+    this.initDialog("about")
+    this.initDialog("package")
+    this.initDialog("settings")
+  }
+
+  initDialog(name){
+    let dialog = document.getElementById(name + "-dialog")
+    let button = document.getElementById(name + "-button")
+    this.dialogs.push(dialog)
+    button.addEventListener('click', _=>{
+      dialog.showModal()
+    })
+    dialog.addEventListener('click', function(event) {
+      var rect = dialog.getBoundingClientRect()
+      var isInDialog = (rect.top <= event.clientY && event.clientY <= rect.top + rect.height &&
+      rect.left <= event.clientX && event.clientX <= rect.left + rect.width)
+      if (!isInDialog) {
+        dialog.close()
+      }
+    })
+  }
+
+  initFonts(){
+    //TODO dl in pre and init in post
+  let promises = FONT_NAMES.map((font) => {
+    return new Promise((resolve, reject) => {
+      fetch(`fonts/${font}`).then((response) => {
+        response.arrayBuffer().then(resolve, reject);
+      }, reject);
+    });
+  });
+  Promise.all(promises).then((buffers) => {
+    this.typst.add_fonts(buffers);
+    let code = document.getElementById("code").value;
+    this.recompile(code);
+  });
+  }
+
+  initPackages(){
+    this.packageManager = null
+    let button = document.getElementById("package-button")
+    button.addEventListener("click", e=>{
+      if (this.packageManager == null){
+        // TODO display error message
+        return
+      }
+      this.packageManager.updatePackageList()
+    })
+  }
+
+
+  initCode(){
+    let textarea = document.getElementById("code");
+    textarea.addEventListener("keydown", (e) => {
+      if (e.keyCode === 9) {
+        e.preventDefault();
+
+        textarea.setRangeText(
+          "  ",
+          textarea.selectionStart,
+          textarea.selectionStart,
+          "end",
+        );
+      }
+    });
+  }
+
+  initCodePost(){
+    this.loadFromURL()
+  }
+
+  initSettingsPost(){
+      let toggle = document.getElementById("save-toggle");
+  this.setCompileOnWrite(!toggle.checked);
+  toggle.addEventListener("change", () => {
+    this.setCompileOnWrite(!toggle.checked);
+  });
+  }
+
+
+
+initSplit() {
   Split({
     minSize: 300,
     columnGutters: [
@@ -62,40 +208,54 @@ function enableSplit() {
     ],
   });
 }
-
-function enableSaveToggle() {
-  let toggle = document.getElementById("save-toggle");
-  setCompileOnWrite(!toggle.checked);
-  toggle.addEventListener("change", () => {
-    setCompileOnWrite(!toggle.checked);
-  });
+initVersion(typst) {
+  let version = document.getElementById("version");
+  version.textContent = "v" + this.bindings.version();
+}
+onCodeChange() {
+  let code = document.getElementById("code").value;
+  let encoded_code = this.bindings.encode_string_into_url(code);
+  if (encoded_code != null)
+    window.history.replaceState(
+      window.history.state,
+      "",
+      "/?text=" + encoded_code,
+    );
+  this.recompile(code);
+}
+loadFromURL() {
+  let path = window.location.search.slice(1);
+  if (path.length <= 5) return;
+  let code = decodeURIComponent(path.slice(5));
+  code = this.bindings.decode_string_from_url(code);
+  document.getElementById("code").value = code;
+  if (code == null) {
+    window.location.search = "";
+  }
 }
 
-function loadFonts(typst) {
-  let promises = FONT_NAMES.map((font) => {
-    return new Promise((resolve, reject) => {
-      fetch(`fonts/${font}`).then((response) => {
-        response.arrayBuffer().then(resolve, reject);
-      }, reject);
-    });
-  });
-  Promise.all(promises).then((buffers) => {
-    typst.add_fonts(buffers);
-    let code = document.getElementById("code").value;
-    recompile(code);
-  });
+
+onCtrlS(e) {
+  if (e.ctrlKey && e.key === "s") {
+    e.preventDefault();
+    this.onCodeChange();
+  }
 }
 
-function enableSettings(typst) {
-  enableSaveToggle();
+setCompileOnWrite(enable) {
+const onWritePause = debounce(this.onCodeChange.bind(this), TIMEOUT);
+  let code = document.getElementById("code");
+  if (enable) {
+    code.removeEventListener("keydown",this.onCtrlS);
+    code.addEventListener("input", onWritePause);
+  } else {
+    code.removeEventListener("input", onWritePause);
+    code.addEventListener("keydown", this.onCtrlS);
+  }
 }
-
-const TIMEOUT = 500;
-let typst = null;
-
-async function recompile(code) {
+recompile(code) {
   try {
-    let result = typst.compile_to_pdf(code);
+    let result = this.typst.compile_to_pdf(code);
     document.getElementById("pdf").src = result;
   } catch (errors) {
     errors.forEach(
@@ -119,151 +279,6 @@ async function recompile(code) {
     console.log(errors);
   }
 }
-
-function packageToRow(packageManager, pkg) {
-  let row = document.createElement("tr");
-  let name = document.createElement("td");
-  let namespace = document.createElement("td");
-  let version = document.createElement("td");
-  let deleteElement = document.createElement("td");
-  let deleteButton = document.createElement("button");
-  deleteButton.addEventListener("click", (_) => {
-    packageManager.delete_package(pkg);
-    updatePackageList(packageManager);
-  });
-  deleteButton.textContent = "X";
-  deleteElement.appendChild(deleteButton);
-  name.textContent = pkg.name;
-  namespace.textContent = pkg.namespace;
-  version.textContent =
-    pkg.version.major + "." + pkg.version.minor + "." + pkg.version.patch;
-
-  row.appendChild(namespace);
-  row.appendChild(name);
-  row.appendChild(version);
-  row.appendChild(deleteElement);
-  return row;
 }
 
-function updatePackageList(packageManager) {
-  // TODO list all packages
-  let packageList = document.getElementById("package-list");
-  let packages = packageManager.list_packages();
-  let rows = packages.map((pkg) => packageToRow(packageManager, pkg));
-  packageList.replaceChildren(...rows);
-}
-
-let dialogs = [];
-
-function enablePackageDialog(packageManager) {
-  let packageDialog = document.getElementById("package-dialog");
-  closeOnBackdropClick(packageDialog)
-  dialogs.push(packageDialog);
-  let packageButton = document.getElementById("package-button");
-  packageButton.addEventListener("click", (_) => {
-    updatePackageList(packageManager);
-    packageDialog.showModal();
-  });
-  let packageInput = document.getElementById("package-input");
-  packageInput.addEventListener("keydown", (e) => {
-    if (event.key === "Enter") {
-      packageManager.download_package_from_str(packageInput.value).then((_) => {
-        updatePackageList(packageManager);
-        packageInput.value = "";
-      });
-    }
-  });
-  packageInput.value = "";
-}
-
-function enableSettingsDialog() {
-  let settingsDialog = document.getElementById("settings-dialog");
-  closeOnBackdropClick(settingsDialog)
-  dialogs.push(settingsDialog);
-  let settingsButton = document.getElementById("settings-button");
-  settingsButton.addEventListener("click", (_) => {
-    settingsDialog.showModal();
-  });
-}
-
-function enableAboutDialog() {
-  let aboutDialog = document.getElementById("about-dialog");
-  closeOnBackdropClick(aboutDialog)
-  dialogs.push(aboutDialog);
-  let aboutButton = document.getElementById("about-button");
-  aboutButton.addEventListener("click", (_) => {
-    aboutDialog.showModal();
-  });
-}
-function enableDialogs(packageManager) {
-  enablePackageDialog(packageManager);
-  enableSettingsDialog();
-  enableAboutDialog();
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      dialogs.forEach((dialog) => dialog.close());
-    }
-  });
-}
-
-function loadFromURL(decode_url) {
-  let path = window.location.search.slice(1);
-  if (path.length <= 5) return;
-  let code = decodeURIComponent(path.slice(5));
-  code = decode_url(code);
-  document.getElementById("code").value = code;
-  if (code == null) {
-    window.location.search = "";
-  }
-}
-
-function enableVersion(typst) {
-  let version = document.getElementById("version");
-  version.textContent = "v" + typst.version();
-}
-
-function onCodeChange() {
-  let code = document.getElementById("code").value;
-  // let encoded_code = encodeURIComponent(code)
-  let encoded_code = rust.encode_string_into_url(code);
-  if (encoded_code != null)
-    window.history.replaceState(
-      window.history.state,
-      "",
-      "/?text=" + encoded_code,
-    );
-  recompile(code);
-}
-
-const onWritePause = debounce(onCodeChange, TIMEOUT);
-
-function onCtrlS(e) {
-  if (e.ctrlKey && e.key === "s") {
-    e.preventDefault();
-    onCodeChange();
-  }
-}
-
-function setCompileOnWrite(enable) {
-  let code = document.getElementById("code");
-  if (enable) {
-    code.removeEventListener("keydown", onCtrlS);
-    code.addEventListener("input", onWritePause);
-  } else {
-    code.removeEventListener("input", onWritePause);
-    code.addEventListener("keydown", onCtrlS);
-  }
-}
-let rust = null;
-document.addEventListener("wasmload", async function () {
-  enableTab();
-  enableSplit();
-  rust = await import(window.bindingsfile);
-  typst = new rust.SystemWorld();
-  pm = new rust.PackageManager();
-  enableVersion(rust);
-  enableDialogs(pm);
-  loadFromURL(rust.decode_string_from_url);
-  enableSettings(typst);
-  loadFonts(typst);
-});
+window.addEventListener("load", _=> new App())
