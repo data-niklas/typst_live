@@ -1,11 +1,11 @@
 <!doctype html>
 <html>
   <head>
-    <link data-trunk rel="css" href="assets/index.css" />
-    <link data-trunk rel="copy-file" href="assets/index.js" />
-    <link data-trunk rel="css" href="assets/simple-notify.min.css" />
     <link data-trunk rel="copy-file" href="assets/simple-notify.min.js" />
     <link data-trunk rel="copy-file" href="assets/split-grid.js" />
+    <link data-trunk rel="copy-file" href="assets/index.js" />
+    <link data-trunk rel="css" href="assets/index.css" />
+    <link data-trunk rel="css" href="assets/simple-notify.min.css" />
     <link data-trunk rel="copy-file" href="assets/favicon.ico" />
     <link
       data-trunk
@@ -13,7 +13,7 @@
       href="assets/fonts/"
       data-target-path="fonts"
     />
-    <link data-trunk rel="rust" data-wasm-opt="s" />
+    <link defer data-trunk rel="rust" data-wasm-opt="s" />
     <!-- JS -->
     <script data-trunk src="./simple-notify.min.js"></script>
     <script data-trunk src="./index.js"></script>
@@ -79,5 +79,9 @@
       Usually you would obtain that string by copying from an import directive in your Typst document.<br>Currently only packages under the preview namespace are supported. For a list of all packages, visit <a href="https://typst.app/docs/packages/">the official Typst page</a>
       </p>
     </dialog>
+    <dialog aria-modal="true" id="loading-dialog" open>
+      <p id="fonts-dl-step">Downloading fonts <span class="spinner"/></p>
+      <p id="typst-step">Initializing typst <span class="spinner"/></p>
+    <dialog>
   </body>
 </html>

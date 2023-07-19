@@ -197,3 +197,23 @@ tbody > tr:hover > td {
 p{
   margin-top: 0;
 }
+.spinner::before{
+  content: "...";
+  animation: dots 5s infinite linear;
+  display: inline-block;
+  overflow-x: hidden;
+}
+@keyframes dots {
+	from {
+		width: calc(1em / 3);
+	}
+	to {
+	  width: 1em;
+  }
+}
+#loading-dialog{
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
