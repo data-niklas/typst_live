@@ -98,7 +98,6 @@ class App {
 		let wasmTask = this.initWasm();
 		let [fontBuffers, _] = await Promise.all([fontTask, wasmTask]);
 		this.initCodePost();
-		this.initVersion();
 		this.initSettingsPost();
 		this.initFonts(fontBuffers);
 		loadingDialog.close();
@@ -220,10 +219,6 @@ class App {
 				},
 			],
 		});
-	}
-	initVersion(typst) {
-		let version = document.getElementById("version");
-		version.textContent = "v" + this.bindings.version();
 	}
 	onCodeChange() {
 		let code = document.getElementById("code").value;

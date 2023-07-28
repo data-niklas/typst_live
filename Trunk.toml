@@ -13,3 +13,8 @@ bindings.default('{base}{wasm}').then(wasm=>{
   }))
 });
 </script>"""
+
+[[hooks]]
+stage = "pre_build"
+command = "sh"
+command_arguments = ["-c", "cargo pkgid | sed -e 's/.*[#@]//g' | head -c-1 > version.txt"]
