@@ -91,6 +91,7 @@ class App {
 
 	async init() {
 		let loadingDialog = document.getElementById("loading-dialog");
+    loadingDialog.showModal();
 		this.initSplit();
 		this.initCode();
 		this.initDialogs();
