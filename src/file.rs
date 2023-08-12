@@ -7,13 +7,11 @@ use std::fs;
 use std::hash::Hash;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use typst::file::PackageSpec;
 use typst::util::PathExt;
 use typst::{
     diag::{FileError, FileResult},
-    file::FileId,
-    syntax::Source,
-    util::Bytes,
+    syntax::{FileId, PackageSpec, Source},
+    eval::Bytes,
     World,
 };
 use wasm_bindgen::JsValue;

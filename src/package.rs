@@ -12,10 +12,9 @@ use std::{
     path::{Path, PathBuf},
 };
 use typst::diag::EcoString;
-use typst::file::Version;
 use typst::{
     diag::{PackageError, PackageResult},
-    file::PackageSpec,
+    syntax::{PackageSpec, PackageVersion as Version}
 };
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{spawn_local, JsFuture};
@@ -26,7 +25,7 @@ pub fn prepare_package(spec: &PackageSpec) -> PackageResult<PathBuf> {
     if spec.namespace != "preview" {
         return Err(PackageError::Other);
     }
-    let subdir = format!("packages/{}/{}-{}", spec.namespace, spec.name, spec.version);
+    let subdir = format!("packages/{}/{}/{}", spec.namespace, spec.name, spec.version);
     let subdir_key = subdir.clone() + "/.";
     if !LFS::new().exists(&subdir_key) {
         console::log_1(&"Package does not exist".into());
@@ -40,7 +39,7 @@ pub struct PackageManager {
     lfs: Arc<LFS>,
 }
 
-const PACKAGE_PATH_SPEC_REGEX: &str = r"packages/([^/]+)/([^-]+)-([0-9]+).([0-9]+).([0-9]+)";
+const PACKAGE_PATH_SPEC_REGEX: &str = r"packages/([^/]+)/([^-]+)/([0-9]+).([0-9]+).([0-9]+)";
 const PACKAGE_SPEC_REGEX: &str = r"@([^/]+)/([^-]+):([0-9]+).([0-9]+).([0-9]+)";
 
 #[wasm_bindgen]

@@ -1,5 +1,5 @@
 use std::fmt::Display;
-use typst::file::{PackageSpec, Version};
+use typst::syntax::{PackageSpec, PackageVersion as Version};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -87,11 +87,11 @@ impl WasmPackageSpec {
     }
 
     pub fn package_directory(&self) -> String {
-        format!("packages/{}/{}-{}", self.namespace, self.name, self.version)
+        format!("packages/{}/{}/{}", self.namespace, self.name, self.version)
     }
     pub fn package_directory_key(&self) -> String {
         format!(
-            "packages/{}/{}-{}/.",
+            "packages/{}/{}/{}/.",
             self.namespace, self.name, self.version
         )
     }

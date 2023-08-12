@@ -1,6 +1,7 @@
 use comemo::Prehashed;
 use flate2::Compression;
 use once_cell::unsync::OnceCell;
+use typst::eval::Tracer;
 use std::io::prelude::*;
 use std::io::Write;
 use std::mem;
@@ -8,7 +9,6 @@ use std::path::Path;
 use std::pin::Pin;
 use std::{io::Read, ptr::read};
 use time::{Date, Month};
-use typst::file::FileId;
 use typst::geom::Color;
 
 use js_sys::{Array, ArrayBuffer};
@@ -19,13 +19,11 @@ use flate2::read::ZlibDecoder;
 use flate2::write::ZlibEncoder;
 use typst::{
     diag::{FileError, FileResult},
-    eval::Library,
+    eval::{Bytes, Library},
     font::{Font, FontBook},
-    syntax::Source,
-    util::Bytes,
+    syntax::{Source, PackageSpec, FileId},
     World,
 };
-
 extern crate console_error_panic_hook;
 use std::panic;
 
@@ -72,7 +70,8 @@ pub struct SystemWorld {
 impl SystemWorld {
     pub fn compile_to_pdf_bytes(&mut self, source: String) -> Result<Vec<u8>, JsValue> {
         self.vfs.set_main(source);
-        match typst::compile(self) {
+        let mut tracer = Tracer::default();
+        match typst::compile(self, &mut tracer) {
             Ok(document) => {
                 let render = typst::export::pdf(&document);
                 Ok(render)
@@ -91,7 +90,8 @@ impl SystemWorld {
         pixel_per_pt: f32,
     ) -> Result<Vec<Vec<u8>>, JsValue> {
         self.vfs.set_main(source);
-        match typst::compile(self) {
+        let mut tracer = Tracer::default();
+        match typst::compile(self, &mut tracer) {
             Ok(document) => {
                 let fill = Color::WHITE;
                 let images = document
@@ -182,7 +182,7 @@ impl SystemWorld {
 }
 
 impl World for SystemWorld {
-    fn packages(&self) -> &[(typst::file::PackageSpec, Option<typst::diag::EcoString>)] {
+    fn packages(&self) -> &[(PackageSpec, Option<typst::diag::EcoString>)] {
         &[]
     }
 
