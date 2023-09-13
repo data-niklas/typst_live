@@ -1,9 +1,9 @@
 use crate::compat::{WasmPackageSpec, WasmVersion};
 use crate::lfs::LFS;
-use js_sys::{Array, ArrayBuffer, JsString, Promise, Uint8Array};
+use js_sys::{Array, ArrayBuffer, Promise, Uint8Array};
 use regex::Regex;
-use std::io::Write;
-use std::marker::Copy;
+
+
 use std::str::FromStr;
 use std::string::String;
 use std::sync::Arc;
@@ -11,13 +11,13 @@ use std::{
     io::Read,
     path::{Path, PathBuf},
 };
-use typst::diag::EcoString;
+
 use typst::{
     diag::{PackageError, PackageResult},
-    syntax::{PackageSpec, PackageVersion as Version},
+    syntax::{PackageSpec},
 };
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::{spawn_local, JsFuture};
+
 use web_sys::console;
 use web_sys::{Request, RequestInit, RequestMode, Response};
 
@@ -124,9 +124,9 @@ impl PackageManager {
         let request = Request::new_with_str_and_init(&url, &opts)
             .map_err(|_| PackageError::Other(None))
             .expect("Could not send request");
-        let lfs = self.lfs.clone();
+        let _lfs = self.lfs.clone();
 
-        return Promise::new(&mut move |resolve, reject| {
+        return Promise::new(&mut move |resolve, _reject| {
             let closure_package_dir = closure_package_dir.clone();
             let lfs = self.lfs.clone();
             let window = web_sys::window().expect("Could not get window");

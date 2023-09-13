@@ -2,12 +2,12 @@ use comemo::Prehashed;
 use flate2::Compression;
 use once_cell::unsync::OnceCell;
 use typst::eval::Tracer;
-use std::io::prelude::*;
+
 use std::io::Write;
 use std::mem;
-use std::path::Path;
-use std::pin::Pin;
-use std::{io::Read, ptr::read};
+
+
+use std::{io::Read};
 use time::{Date, Month};
 use typst::geom::Color;
 
@@ -18,7 +18,7 @@ use web_sys::Blob;
 use flate2::read::ZlibDecoder;
 use flate2::write::ZlibEncoder;
 use typst::{
-    diag::{FileError, FileResult},
+    diag::{FileResult},
     eval::{Bytes, Library},
     font::{Font, FontBook},
     syntax::{Source, PackageSpec, FileId},
@@ -186,7 +186,7 @@ impl World for SystemWorld {
         &[]
     }
 
-    fn today(&self, offset: Option<i64>) -> Option<typst::eval::Datetime> {
+    fn today(&self, _offset: Option<i64>) -> Option<typst::eval::Datetime> {
         let today = js_sys::Date::new_0();
         let year = today.get_full_year().try_into().expect("Not a year");
         let month = Month::try_from(today.get_month() as u8).expect("Not a month");

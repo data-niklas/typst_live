@@ -1,20 +1,20 @@
-use crate::{SystemWorld, MAIN_SOURCE_NAME};
+use crate::{MAIN_SOURCE_NAME};
 use once_cell::unsync::OnceCell;
 use siphasher::sip128::{Hasher128, SipHasher13};
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
-use std::fs;
+
 use std::hash::Hash;
-use std::io::Read;
+
 use std::path::{Path, PathBuf};
 use typst::{
     diag::{FileError, FileResult},
     eval::Bytes,
-    syntax::{FileId, PackageSpec, Source, VirtualPath},
+    syntax::{FileId, Source, VirtualPath},
     World,
 };
 
-use wasm_bindgen::JsValue;
+
 
 use crate::lfs::LFS;
 use crate::package::prepare_package;
@@ -152,7 +152,7 @@ struct PathHash(u128);
 
 impl PathHash {
     fn new(path: &Path) -> FileResult<Self> {
-        let f = |e| FileError::from_io(e, path);
+        let _f = |e| FileError::from_io(e, path);
         let mut state = SipHasher13::new();
         path.to_str().unwrap().hash(&mut state);
         let content = read(path)?;
