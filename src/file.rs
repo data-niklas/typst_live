@@ -7,13 +7,13 @@ use std::fs;
 use std::hash::Hash;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use typst::util::PathExt;
 use typst::{
     diag::{FileError, FileResult},
-    syntax::{FileId, PackageSpec, Source},
     eval::Bytes,
+    syntax::{FileId, PackageSpec, Source, VirtualPath},
     World,
 };
+
 use wasm_bindgen::JsValue;
 
 use crate::lfs::LFS;
@@ -28,22 +28,23 @@ pub struct VFS {
 
 impl VFS {
     pub fn new() -> Self {
+        let main_path = VirtualPath::new(Path::new(MAIN_SOURCE_NAME));
         Self {
             main: None,
-            main_id: FileId::new(None, Path::new(MAIN_SOURCE_NAME)),
+            main_id: FileId::new(None, main_path),
             hashes: RefCell::default(),
             paths: RefCell::default(),
         }
     }
     pub fn source(&self, id: FileId) -> Result<Source, FileError> {
-        if id.path().to_str().unwrap() == MAIN_SOURCE_NAME {
+        if id.vpath().as_rooted_path().to_str().unwrap() == MAIN_SOURCE_NAME {
             Ok(self.get_main())
         } else {
             self.slot(id)?.source()
         }
     }
     pub fn file(&self, id: FileId) -> FileResult<Bytes> {
-        if id.path().to_str().unwrap() == MAIN_SOURCE_NAME {
+        if id.vpath().as_rooted_path().to_str().unwrap() == MAIN_SOURCE_NAME {
             let main_source = self.main.as_ref().unwrap();
             let main_text = main_source.text();
             let main_bytes = main_text.as_bytes();
@@ -73,7 +74,7 @@ impl VFS {
                 Some(spec) => prepare_package(spec)?,
                 None => Path::new("/").to_owned(),
             };
-            system_path = root.join_rooted(id.path()).ok_or(FileError::AccessDenied)?;
+            system_path = root.join(id.vpath().as_rooted_path());
             let hash = PathHash::new(&system_path);
 
             self.hashes.borrow_mut().insert(id, hash);
@@ -92,7 +93,7 @@ impl VFS {
 
                 // Join the path to the root. If it tries to escape, deny
                 // access. Note: It can still escape via symlinks.
-                system_path = root.join_rooted(id.path()).ok_or(FileError::AccessDenied)?;
+                system_path = root.join(id.vpath().as_rooted_path());
                 PathHash::new(&system_path)
             })
             .clone()?;
@@ -163,11 +164,14 @@ impl PathHash {
 /// Read a file.
 fn read(path: &Path) -> FileResult<Vec<u8>> {
     let lfs = LFS::new();
-    let key = path.to_str().ok_or(FileError::Other)?;
+    let key = path.to_str().ok_or(FileError::Other(None))?;
     if !lfs.exists(key) {
         return Err(FileError::NotFound(path.to_owned()));
     }
-    lfs.get_bytes(key).ok_or(FileError::Other)
+    lfs.get_bytes(key)
+        .map_or(FileResult::Err(FileError::Other(None)), |bytes| {
+            FileResult::Ok(bytes)
+        })
 }
 
 /// Decode UTF-8 with an optional BOM.

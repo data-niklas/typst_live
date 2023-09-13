@@ -14,7 +14,7 @@ use std::{
 use typst::diag::EcoString;
 use typst::{
     diag::{PackageError, PackageResult},
-    syntax::{PackageSpec, PackageVersion as Version}
+    syntax::{PackageSpec, PackageVersion as Version},
 };
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{spawn_local, JsFuture};
@@ -23,15 +23,15 @@ use web_sys::{Request, RequestInit, RequestMode, Response};
 
 pub fn prepare_package(spec: &PackageSpec) -> PackageResult<PathBuf> {
     if spec.namespace != "preview" {
-        return Err(PackageError::Other);
+        return PackageResult::Err(PackageError::Other(None));
     }
     let subdir = format!("packages/{}/{}/{}", spec.namespace, spec.name, spec.version);
     let subdir_key = subdir.clone() + "/.";
     if !LFS::new().exists(&subdir_key) {
         console::log_1(&"Package does not exist".into());
-        return Err(PackageError::NotFound(spec.clone()));
+        return PackageResult::Err(PackageError::NotFound(spec.clone()));
     }
-    Ok(Path::new(&subdir).to_owned())
+    PackageResult::Ok(Path::new(&subdir).to_owned())
 }
 
 #[wasm_bindgen]
@@ -122,7 +122,7 @@ impl PackageManager {
         opts.method("GET");
         opts.mode(RequestMode::Cors);
         let request = Request::new_with_str_and_init(&url, &opts)
-            .map_err(|_| PackageError::Other)
+            .map_err(|_| PackageError::Other(None))
             .expect("Could not send request");
         let lfs = self.lfs.clone();
 
