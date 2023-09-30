@@ -31,7 +31,7 @@
     flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {
         inherit system;
-        overlays = [rust-overlay.overlay];
+        overlays = [rust-overlay.overlays.default];
       };
 
       lib = pkgs.lib;
