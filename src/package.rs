@@ -4,7 +4,6 @@ use js_sys::{Array, ArrayBuffer, Promise, Uint8Array};
 use regex::Regex;
 
 
-use std::str::FromStr;
 use std::string::String;
 use std::sync::Arc;
 use std::{

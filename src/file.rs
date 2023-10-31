@@ -11,7 +11,6 @@ use typst::{
     diag::{FileError, FileResult},
     eval::Bytes,
     syntax::{FileId, Source, VirtualPath},
-    World,
 };
 
 

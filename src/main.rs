@@ -6,8 +6,7 @@ use typst::eval::Tracer;
 use std::io::Write;
 use std::mem;
 
-
-use std::{io::Read};
+use std::io::Read;
 use time::{Date, Month};
 use typst::geom::Color;
 
@@ -18,10 +17,10 @@ use web_sys::Blob;
 use flate2::read::ZlibDecoder;
 use flate2::write::ZlibEncoder;
 use typst::{
-    diag::{FileResult},
+    diag::FileResult,
     eval::{Bytes, Library},
     font::{Font, FontBook},
-    syntax::{Source, PackageSpec, FileId},
+    syntax::{FileId, PackageSpec, Source},
     World,
 };
 extern crate console_error_panic_hook;
@@ -73,7 +72,7 @@ impl SystemWorld {
         let mut tracer = Tracer::default();
         match typst::compile(self, &mut tracer) {
             Ok(document) => {
-                let render = typst::export::pdf(&document);
+                let render = typst::export::pdf(&document, None, None);
                 Ok(render)
             }
             Err(errors) => Err(errors
